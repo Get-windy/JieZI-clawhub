@@ -90,7 +90,7 @@ function SkillDetail() {
                 by <a href={`/u/${owner.handle}`}>@{owner.handle}</a>
               </div>
             ) : null}
-            {skill.badges.redactionApproved ? <div className="tag">Redaction approved</div> : null}
+            {skill.batch === 'highlighted' ? <div className="tag">Highlighted</div> : null}
             {isAuthenticated ? (
               <button
                 className="btn"

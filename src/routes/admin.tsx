@@ -11,7 +11,6 @@ function Admin() {
   const users = useQuery(api.users.list, { limit: 50 }) as Doc<'users'>[] | undefined
   const skills = useQuery(api.skills.list, { limit: 20 }) as Doc<'skills'>[] | undefined
   const setRole = useMutation(api.users.setRole)
-  const setApproved = useMutation(api.skills.setRedactionApproved)
   const setBatch = useMutation(api.skills.setBatch)
 
   if (!users) {
@@ -64,18 +63,6 @@ function Admin() {
                 {skill.displayName}
               </Link>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() =>
-                    void setApproved({
-                      skillId: skill._id,
-                      approved: !skill.badges.redactionApproved,
-                    })
-                  }
-                >
-                  {skill.badges.redactionApproved ? 'Revoke' : 'Approve'}
-                </button>
                 <button
                   className="btn"
                   type="button"

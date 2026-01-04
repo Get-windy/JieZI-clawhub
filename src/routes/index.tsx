@@ -45,9 +45,7 @@ function Home() {
               </Link>
             </div>
             <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
-              <div className="stat">
-                Search skills. Versioned, rollback-ready, redaction-checked.
-              </div>
+              <div className="stat">Search skills. Versioned, rollback-ready.</div>
             </div>
           </div>
         </div>
@@ -55,7 +53,7 @@ function Home() {
 
       <section className="section">
         <h2 className="section-title">Highlighted batch</h2>
-        <p className="section-subtitle">Curated signal — approved and easy to trust.</p>
+        <p className="section-subtitle">Curated signal — highlighted for quick trust.</p>
         <div className="grid">
           {highlighted.length === 0 ? (
             <div className="card">No highlighted skills yet.</div>
