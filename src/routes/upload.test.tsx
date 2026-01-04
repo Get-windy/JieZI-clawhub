@@ -15,6 +15,7 @@ vi.mock('convex/react', () => ({
   useConvexAuth: () => ({ isAuthenticated: true }),
   useMutation: () => generateUploadUrl,
   useAction: () => publishVersion,
+  useQuery: () => null,
 }))
 
 describe('Upload route', () => {
@@ -33,14 +34,16 @@ describe('Upload route', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows validation issues and disables publish by default', () => {
+  it('hides validation issues until submit', async () => {
     render(<Upload />)
     const publishButton = screen.getByRole('button', { name: /publish/i })
     expect(publishButton).toBeTruthy()
-    expect((publishButton as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByText(/Slug is required/i)).toBeTruthy()
+    expect(screen.queryByText(/Slug is required/i)).toBeNull()
+    fireEvent.click(publishButton)
+    await waitFor(() => {
+      expect(screen.getByText(/Slug is required/i)).toBeTruthy()
+    })
     expect(screen.getByText(/Display name is required/i)).toBeTruthy()
-    expect(screen.getByText(/Changelog is required/i)).toBeTruthy()
   })
 
   it('marks the input for folder uploads', async () => {
@@ -66,25 +69,17 @@ describe('Upload route', () => {
     fireEvent.change(screen.getByPlaceholderText('latest, beta'), {
       target: { value: 'latest' },
     })
-    fireEvent.change(screen.getByPlaceholderText('What changed in this version?'), {
-      target: { value: 'Initial drop.' },
-    })
-
     const file = new File(['hello'], 'SKILL.md', { type: 'text/markdown' })
     const input = screen.getByTestId('upload-input') as HTMLInputElement
     fireEvent.change(input, { target: { files: [file] } })
 
     const publishButton = screen.getByRole('button', { name: /publish/i }) as HTMLButtonElement
-    await waitFor(() => {
-      expect(publishButton.disabled).toBe(false)
-    })
-    expect(screen.getByText(/Ready to publish/i)).toBeTruthy()
+    expect(await screen.findByText(/Ready to publish/i)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /remove/i }))
-    await waitFor(() => {
-      expect(publishButton.disabled).toBe(true)
-    })
-    expect(screen.getByText(/Add at least one file/i)).toBeTruthy()
+    expect(screen.queryByText(/Add at least one file/i)).toBeNull()
+    fireEvent.click(publishButton)
+    expect(await screen.findByText(/Add at least one file/i)).toBeTruthy()
   })
 
   it('surfaces publish errors and stays on page', async () => {
@@ -110,9 +105,7 @@ describe('Upload route', () => {
     const input = screen.getByTestId('upload-input') as HTMLInputElement
     fireEvent.change(input, { target: { files: [file] } })
     const publishButton = screen.getByRole('button', { name: /publish/i }) as HTMLButtonElement
-    await waitFor(() => {
-      expect(publishButton.disabled).toBe(false)
-    })
+    await screen.findByText(/Ready to publish/i)
     fireEvent.click(publishButton)
     expect(await screen.findByText(/Changelog is required/i)).toBeTruthy()
   })

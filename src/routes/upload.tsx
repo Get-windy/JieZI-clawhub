@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useAction, useConvexAuth, useMutation } from 'convex/react'
+import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react'
 import semver from 'semver'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
@@ -15,6 +15,7 @@ export function Upload() {
   const { isAuthenticated } = useConvexAuth()
   const generateUploadUrl = useMutation(api.uploads.generateUploadUrl)
   const publishVersion = useAction(api.skills.publishVersion)
+  const [hasAttempted, setHasAttempted] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const [slug, setSlug] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -40,6 +41,11 @@ export function Upload() {
   const trimmedSlug = slug.trim()
   const trimmedName = displayName.trim()
   const trimmedChangelog = changelog.trim()
+  const lookupSlug = trimmedSlug && SLUG_PATTERN.test(trimmedSlug) ? trimmedSlug : ''
+  const existingSkill = useQuery(
+    api.skills.getBySlug,
+    lookupSlug ? { slug: lookupSlug } : 'skip',
+  )
   const parsedTags = useMemo(
     () =>
       tags
@@ -64,8 +70,8 @@ export function Upload() {
     if (parsedTags.length === 0) {
       issues.push('At least one tag is required.')
     }
-    if (!trimmedChangelog) {
-      issues.push('Changelog is required.')
+    if (existingSkill && !trimmedChangelog) {
+      issues.push('Changelog is required for updates.')
     }
     if (files.length === 0) {
       issues.push('Add at least one file.')
@@ -86,6 +92,7 @@ export function Upload() {
     version,
     parsedTags.length,
     trimmedChangelog,
+    existingSkill,
     files.length,
     hasSkillFile,
     totalBytes,
@@ -108,6 +115,7 @@ export function Upload() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    setHasAttempted(true)
     if (!validation.ready) {
       if (validationRef.current && 'scrollIntoView' in validationRef.current) {
         validationRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -351,17 +359,17 @@ export function Upload() {
               <ul>
                 <li>Include SKILL.md</li>
                 <li>50 MB max per version</li>
-                <li>Changelog required</li>
+                <li>Changelog required for updates</li>
                 <li>Valid semver version</li>
               </ul>
             </div>
           </div>
         </div>
         <div className="upload-footer" ref={validationRef}>
-          <button className="btn btn-primary" type="submit" disabled={!validation.ready}>
+          <button className="btn btn-primary" type="submit" disabled={Boolean(status)}>
             Publish
           </button>
-          {!validation.ready ? (
+          {hasAttempted && !validation.ready ? (
             <div className="upload-validation">
               {validation.issues.map((issue) => (
                 <div key={issue} className="upload-validation-item">
@@ -369,9 +377,9 @@ export function Upload() {
                 </div>
               ))}
             </div>
-          ) : error ? null : (
+          ) : error ? null : validation.ready ? (
             <div className="upload-ready">Ready to publish.</div>
-          )}
+          ) : null}
           {error ? <div className="stat upload-error">{error}</div> : null}
           {status ? <div className="stat">{status}</div> : null}
         </div>
