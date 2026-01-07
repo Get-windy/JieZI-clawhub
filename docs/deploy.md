@@ -1,0 +1,77 @@
+---
+title: 'Deploy'
+description: 'Deploy web app + Convex backend, wire /api rewrites, set env.'
+---
+
+# Deploy
+
+ClawdHub is two deployables:
+
+- Web app (TanStack Start) → typically Vercel.
+- Convex backend → Convex deployment (serves `/api/...` routes).
+
+## 1) Deploy Convex
+
+From your local machine:
+
+```bash
+bunx convex deploy
+```
+
+Ensure Convex env is set (auth + embeddings):
+
+- `AUTH_GITHUB_ID`
+- `AUTH_GITHUB_SECRET`
+- `CONVEX_SITE_URL`
+- `JWT_PRIVATE_KEY`
+- `JWKS`
+- `OPENAI_API_KEY`
+- `SITE_URL` (your web app URL)
+- Optional webhook env (see `docs/webhook.md`)
+
+## 2) Deploy web app (Vercel)
+
+Set env vars:
+
+- `VITE_CONVEX_URL`
+- `VITE_CONVEX_SITE_URL` (Convex “site” URL)
+- `CONVEX_SITE_URL` (same value; used by auth provider config)
+- `SITE_URL` (web app URL)
+
+## 3) Route `/api/*` to Convex
+
+This repo currently uses `vercel.json` rewrites:
+
+- `source: /api/:path*`
+- `destination: https://<deployment>.convex.site/api/:path*`
+
+For self-host:
+
+- update `vercel.json` to your deployment’s Convex site URL.
+
+## 4) Registry discovery
+
+The CLI can discover the API base from:
+
+- `/.well-known/clawdhub.json`
+
+If you don’t serve that file, users must set:
+
+```bash
+export CLAWDHUB_REGISTRY=https://your-site.example
+```
+
+## 5) Post-deploy checks
+
+```bash
+curl -i "https://<site>/api/search?q=test"
+curl -i "https://<site>/api/skill?slug=gifgrep"
+```
+
+Then:
+
+```bash
+clawdhub login --site https://<site>
+clawdhub whoami
+```
+
