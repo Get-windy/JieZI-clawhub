@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAction } from 'convex/react'
 import { useMemo, useState } from 'react'
 import { api } from '../../convex/_generated/api'
-import { useAuthStatus } from '../lib/useAuthStatus'
 import { formatBytes } from '../lib/uploadUtils'
+import { useAuthStatus } from '../lib/useAuthStatus'
 
 export const Route = createFileRoute('/import')({
   component: ImportGitHub,

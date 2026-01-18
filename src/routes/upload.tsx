@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import semver from 'semver'
 import { api } from '../../convex/_generated/api'
 import { getSiteMode } from '../lib/site'
-import { useAuthStatus } from '../lib/useAuthStatus'
 import { expandFiles } from '../lib/uploadFiles'
+import { useAuthStatus } from '../lib/useAuthStatus'
 import {
   formatBytes,
   formatPublishError,

@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
@@ -19,10 +20,12 @@ const plexMonoPath = require.resolve(
   '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2',
 )
 
-const convexReactPath = require.resolve('convex/dist/esm/react/index.js')
-const convexBrowserPath = require.resolve('convex/dist/esm/browser/index.js')
-const convexValuesPath = require.resolve('convex/dist/esm/values/index.js')
-const convexAuthReactPath = require.resolve('@convex-dev/auth/dist/react/index.js')
+const convexEntry = require.resolve('convex')
+const convexRoot = dirname(dirname(dirname(convexEntry)))
+const convexReactPath = join(convexRoot, 'dist/esm/react/index.js')
+const convexBrowserPath = join(convexRoot, 'dist/esm/browser/index.js')
+const convexValuesPath = join(convexRoot, 'dist/esm/values/index.js')
+const convexAuthReactPath = require.resolve('@convex-dev/auth/react')
 
 const config = defineConfig({
   resolve: {
@@ -35,7 +38,7 @@ const config = defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['convex/dist/esm/react/index.js', 'convex/dist/esm/browser/index.js'],
+    include: ['convex/react', 'convex/browser'],
   },
   plugins: [
     devtools(),

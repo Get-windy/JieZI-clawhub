@@ -42,8 +42,7 @@ describe('SkillDetailPage', () => {
   })
 
   it('shows a loading indicator while loading', () => {
-    useQueryMock
-      .mockImplementationOnce(() => undefined) // getBySlug
+    useQueryMock.mockImplementationOnce(() => undefined) // getBySlug
 
     render(<SkillDetailPage slug="weather" />)
     expect(screen.getByText(/Loading skill/i)).toBeTruthy()
@@ -51,28 +50,26 @@ describe('SkillDetailPage', () => {
   })
 
   it('shows not found when skill query resolves to null', async () => {
-    useQueryMock
-      .mockImplementationOnce(() => null) // getBySlug
+    useQueryMock.mockImplementationOnce(() => null) // getBySlug
 
     render(<SkillDetailPage slug="missing-skill" />)
     expect(await screen.findByText(/Skill not found/i)).toBeTruthy()
   })
 
   it('redirects legacy routes to canonical owner/slug', async () => {
-    useQueryMock
-      .mockImplementationOnce(() => ({
-        skill: {
-          _id: 'skills:1',
-          slug: 'weather',
-          displayName: 'Weather',
-          summary: 'Get current weather.',
-          ownerUserId: 'users:1',
-          tags: {},
-          stats: { stars: 0, downloads: 0 },
-        },
-        owner: { handle: 'steipete', name: 'Peter' },
-        latestVersion: { _id: 'skillVersions:1', version: '1.0.0', parsed: {} },
-      }))
+    useQueryMock.mockImplementationOnce(() => ({
+      skill: {
+        _id: 'skills:1',
+        slug: 'weather',
+        displayName: 'Weather',
+        summary: 'Get current weather.',
+        ownerUserId: 'users:1',
+        tags: {},
+        stats: { stars: 0, downloads: 0 },
+      },
+      owner: { handle: 'steipete', name: 'Peter' },
+      latestVersion: { _id: 'skillVersions:1', version: '1.0.0', parsed: {} },
+    }))
 
     render(<SkillDetailPage slug="weather" redirectToCanonical />)
     expect(screen.getByText(/Loading skill/i)).toBeTruthy()
