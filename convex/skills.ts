@@ -65,7 +65,7 @@ async function buildPublicSkillEntries(ctx: QueryCtx, skills: Doc<'skills'>[]) {
     return handlePromise
   }
 
-  return Promise.all(
+  const entries = await Promise.all(
     skills.map(async (skill) => {
       const [latestVersion, ownerHandle] = await Promise.all([
         skill.latestVersionId ? ctx.db.get(skill.latestVersionId) : null,
@@ -77,8 +77,8 @@ async function buildPublicSkillEntries(ctx: QueryCtx, skills: Doc<'skills'>[]) {
       return { skill: publicSkill, latestVersion, ownerHandle }
     }),
   )
-    .then((entries) => entries.filter((entry): entry is PublicSkillEntry => entry !== null))
-    satisfies Promise<PublicSkillEntry[]>
+
+  return entries.filter((entry): entry is PublicSkillEntry => entry !== null)
 }
 
 async function buildManagementSkillEntries(ctx: QueryCtx, skills: Doc<'skills'>[]) {
