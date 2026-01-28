@@ -820,19 +820,6 @@ export const backfillSkillBadgeTable: ReturnType<typeof action> = action({
   },
 })
 
-export const backfillSkillBadgeTableUnsafe: ReturnType<typeof action> = action({
-  args: {
-    dryRun: v.optional(v.boolean()),
-    batchSize: v.optional(v.number()),
-    maxBatches: v.optional(v.number()),
-  },
-  handler: async (ctx, args): Promise<SkillBadgeTableBackfillActionResult> => {
-    return ctx.runAction(internal.maintenance.backfillSkillBadgeTableInternal, args) as Promise<
-      SkillBadgeTableBackfillActionResult
-    >
-  },
-})
-
 export const scheduleBackfillSkillBadgeTable: ReturnType<typeof action> = action({
   args: { dryRun: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
