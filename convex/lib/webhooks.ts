@@ -6,7 +6,7 @@ export type WebhookSkillPayload = {
   summary?: string
   version?: string
   ownerHandle?: string
-  batch?: string
+  highlighted?: boolean
   tags?: string[]
 }
 
@@ -33,7 +33,7 @@ export function shouldSendWebhook(
   if (!config.url) return false
   if (!config.highlightedOnly) return true
   if (event === 'skill.highlighted') return true
-  return skill.batch === 'highlighted'
+  return Boolean(skill.highlighted)
 }
 
 export function buildDiscordPayload(

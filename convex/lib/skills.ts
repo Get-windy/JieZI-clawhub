@@ -66,13 +66,10 @@ export function parseMoltbotMetadata(frontmatter: ParsedSkillFrontmatter) {
       ? (metadata as Record<string, unknown>)
       : undefined
   const moltbotMeta = metadataRecord?.moltbot
-  const moltbotMeta = metadataRecord?.moltbot
   const metadataSource =
     moltbotMeta && typeof moltbotMeta === 'object' && !Array.isArray(moltbotMeta)
       ? (moltbotMeta as Record<string, unknown>)
-      : moltbotMeta && typeof moltbotMeta === 'object' && !Array.isArray(moltbotMeta)
-        ? (moltbotMeta as Record<string, unknown>)
-        : undefined
+      : undefined
   const moltbotRaw = metadataSource ?? frontmatter.moltbot
   if (!moltbotRaw || typeof moltbotRaw !== 'object' || Array.isArray(moltbotRaw)) return undefined
 

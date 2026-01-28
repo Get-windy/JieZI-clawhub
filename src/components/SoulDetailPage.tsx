@@ -4,15 +4,22 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api } from '../../convex/_generated/api'
 import type { Doc } from '../../convex/_generated/dataModel'
+import { isModerator } from '../lib/roles'
 import { useAuthStatus } from '../lib/useAuthStatus'
 
 type SoulDetailPageProps = {
   slug: string
 }
 
+type SoulBySlugResult = {
+  soul: Doc<'souls'>
+  latestVersion: Doc<'soulVersions'> | null
+  owner: Doc<'users'> | null
+} | null
+
 export function SoulDetailPage({ slug }: SoulDetailPageProps) {
   const { isAuthenticated, me } = useAuthStatus()
-  const result = useQuery(api.souls.getBySlug, { slug })
+  const result = useQuery(api.souls.getBySlug, { slug }) as SoulBySlugResult | undefined
   const toggleStar = useMutation(api.soulStars.toggle)
   const addComment = useMutation(api.soulComments.add)
   const removeComment = useMutation(api.soulComments.remove)
@@ -229,9 +236,7 @@ export function SoulDetailPage({ slug }: SoulDetailPageProps) {
                   </div>
                   {isAuthenticated &&
                   me &&
-                  (me._id === entry.comment.userId ||
-                    me.role === 'admin' ||
-                    me.role === 'moderator') ? (
+                  (me._id === entry.comment.userId || isModerator(me)) ? (
                     <button
                       className="btn"
                       type="button"

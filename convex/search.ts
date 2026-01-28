@@ -3,6 +3,7 @@ import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { action, internalQuery } from './_generated/server'
 import { generateEmbedding } from './lib/embeddings'
+import { isSkillHighlighted } from './lib/badges'
 import { matchesExactTokens, tokenize } from './lib/searchText'
 
 type HydratedEntry = {
@@ -61,7 +62,7 @@ export const searchSkills: ReturnType<typeof action> = action({
       )
 
       const filtered = args.highlightedOnly
-        ? hydrated.filter((entry) => entry.skill?.batch === 'highlighted')
+        ? hydrated.filter((entry) => (entry.skill ? isSkillHighlighted(entry.skill) : false))
         : hydrated
 
       exactMatches = filtered.filter((entry) =>

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { Menu, Monitor, Moon, Sun } from 'lucide-react'
 import { useMemo, useRef } from 'react'
 import { gravatarUrl } from '../lib/gravatar'
+import { isModerator } from '../lib/roles'
 import { getMoltHubSiteUrl, getSiteMode, getSiteName } from '../lib/site'
 import { applyTheme, useThemeMode } from '../lib/theme'
 import { startThemeTransition } from '../lib/theme-transition'
@@ -29,7 +30,7 @@ export default function Header() {
   const avatar = me?.image ?? (me?.email ? gravatarUrl(me.email) : undefined)
   const handle = me?.handle ?? me?.displayName ?? 'user'
   const initial = (me?.displayName ?? me?.name ?? handle).charAt(0).toUpperCase()
-  const isModerator = me?.role === 'admin' || me?.role === 'moderator'
+  const isStaff = isModerator(me)
 
   const setTheme = (next: 'system' | 'light' | 'dark') => {
     startThemeTransition({
@@ -84,11 +85,28 @@ export default function Header() {
             Upload
           </Link>
           {isSoulMode ? null : <Link to="/import">Import</Link>}
-          <Link to="/" search={{ q: undefined, highlighted: undefined, search: true }}>
+          <Link
+            to={isSoulMode ? '/souls' : '/skills'}
+            search={
+              isSoulMode
+                ? { q: undefined, sort: undefined, dir: undefined, view: undefined }
+                : {
+                    q: undefined,
+                    sort: undefined,
+                    dir: undefined,
+                    highlighted: undefined,
+                    view: undefined,
+                  }
+            }
+          >
             Search
           </Link>
           {me ? <Link to="/stars">Stars</Link> : null}
-          {isModerator ? <Link to="/admin">Admin</Link> : null}
+          {isStaff ? (
+            <Link to="/management" search={{ skill: undefined }}>
+              Management
+            </Link>
+          ) : null}
         </nav>
         <div className="nav-actions">
           <div className="nav-mobile">
@@ -138,7 +156,20 @@ export default function Header() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem asChild>
-                  <Link to="/" search={{ q: undefined, highlighted: undefined, search: true }}>
+                  <Link
+                    to={isSoulMode ? '/souls' : '/skills'}
+                    search={
+                      isSoulMode
+                        ? { q: undefined, sort: undefined, dir: undefined, view: undefined }
+                        : {
+                            q: undefined,
+                            sort: undefined,
+                            dir: undefined,
+                            highlighted: undefined,
+                            view: undefined,
+                          }
+                    }
+                  >
                     Search
                   </Link>
                 </DropdownMenuItem>
@@ -147,9 +178,11 @@ export default function Header() {
                     <Link to="/stars">Stars</Link>
                   </DropdownMenuItem>
                 ) : null}
-                {isModerator ? (
+                {isStaff ? (
                   <DropdownMenuItem asChild>
-                    <Link to="/admin">Admin</Link>
+                    <Link to="/management" search={{ skill: undefined }}>
+                      Management
+                    </Link>
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuSeparator />
@@ -168,9 +201,8 @@ export default function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className="theme-toggle">
+          <div className="theme-toggle" ref={toggleRef}>
             <ToggleGroup
-              ref={toggleRef}
               type="single"
               value={mode}
               onValueChange={(value) => {

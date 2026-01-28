@@ -265,6 +265,27 @@ type FingerprintBackfillPageResult = {
   isDone: boolean
 }
 
+type BadgeBackfillStats = {
+  skillsScanned: number
+  skillsPatched: number
+  highlightsPatched: number
+}
+
+type BadgeBackfillPageItem = {
+  skillId: Id<'skills'>
+  ownerUserId: Id<'users'>
+  createdAt?: number
+  updatedAt?: number
+  batch?: string
+  badges?: Doc<'skills'>['badges']
+}
+
+type BadgeBackfillPageResult = {
+  items: BadgeBackfillPageItem[]
+  cursor: string | null
+  isDone: boolean
+}
+
 export const getSkillFingerprintBackfillPageInternal = internalQuery({
   args: {
     cursor: v.optional(v.string()),
@@ -459,6 +480,175 @@ export const scheduleBackfillSkillFingerprints: ReturnType<typeof action> = acti
     const { user } = await requireUserFromAction(ctx)
     assertRole(user, ['admin'])
     await ctx.scheduler.runAfter(0, internal.maintenance.backfillSkillFingerprintsInternal, {
+      dryRun: Boolean(args.dryRun),
+      batchSize: DEFAULT_BATCH_SIZE,
+      maxBatches: DEFAULT_MAX_BATCHES,
+    })
+    return { ok: true as const }
+  },
+})
+
+export const getSkillBadgeBackfillPageInternal = internalQuery({
+  args: {
+    cursor: v.optional(v.string()),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<BadgeBackfillPageResult> => {
+    const batchSize = clampInt(args.batchSize ?? DEFAULT_BATCH_SIZE, 1, MAX_BATCH_SIZE)
+    const { page, isDone, continueCursor } = await ctx.db
+      .query('skills')
+      .order('asc')
+      .paginate({ cursor: args.cursor ?? null, numItems: batchSize })
+
+    const items: BadgeBackfillPageItem[] = page.map((skill) => ({
+      skillId: skill._id,
+      ownerUserId: skill.ownerUserId,
+      createdAt: skill.createdAt ?? undefined,
+      updatedAt: skill.updatedAt ?? undefined,
+      batch: skill.batch ?? undefined,
+      badges: skill.badges ?? undefined,
+    }))
+
+    return { items, cursor: continueCursor, isDone }
+  },
+})
+
+export const applySkillBadgeBackfillPatchInternal = internalMutation({
+  args: {
+    skillId: v.id('skills'),
+    badges: v.optional(
+      v.object({
+        redactionApproved: v.optional(
+          v.object({
+            byUserId: v.id('users'),
+            at: v.number(),
+          }),
+        ),
+        highlighted: v.optional(
+          v.object({
+            byUserId: v.id('users'),
+            at: v.number(),
+          }),
+        ),
+        official: v.optional(
+          v.object({
+            byUserId: v.id('users'),
+            at: v.number(),
+          }),
+        ),
+        deprecated: v.optional(
+          v.object({
+            byUserId: v.id('users'),
+            at: v.number(),
+          }),
+        ),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.skillId, { badges: args.badges ?? undefined, updatedAt: Date.now() })
+    return { ok: true as const }
+  },
+})
+
+export type BadgeBackfillActionArgs = {
+  dryRun?: boolean
+  batchSize?: number
+  maxBatches?: number
+}
+
+export type BadgeBackfillActionResult = { ok: true; stats: BadgeBackfillStats }
+
+export async function backfillSkillBadgesInternalHandler(
+  ctx: ActionCtx,
+  args: BadgeBackfillActionArgs,
+): Promise<BadgeBackfillActionResult> {
+  const dryRun = Boolean(args.dryRun)
+  const batchSize = clampInt(args.batchSize ?? DEFAULT_BATCH_SIZE, 1, MAX_BATCH_SIZE)
+  const maxBatches = clampInt(args.maxBatches ?? DEFAULT_MAX_BATCHES, 1, MAX_MAX_BATCHES)
+
+  const totals: BadgeBackfillStats = {
+    skillsScanned: 0,
+    skillsPatched: 0,
+    highlightsPatched: 0,
+  }
+
+  let cursor: string | null = null
+  let isDone = false
+
+  for (let i = 0; i < maxBatches; i++) {
+    const page = (await ctx.runQuery(internal.maintenance.getSkillBadgeBackfillPageInternal, {
+      cursor: cursor ?? undefined,
+      batchSize,
+    })) as BadgeBackfillPageResult
+
+    cursor = page.cursor
+    isDone = page.isDone
+
+    for (const item of page.items) {
+      totals.skillsScanned++
+
+      const shouldHighlight = item.batch === 'highlighted' && !item.badges?.highlighted
+      if (!shouldHighlight) continue
+
+      totals.skillsPatched++
+      totals.highlightsPatched++
+
+      if (dryRun) continue
+
+      const at = item.updatedAt ?? item.createdAt ?? Date.now()
+      await ctx.runMutation(internal.maintenance.applySkillBadgeBackfillPatchInternal, {
+        skillId: item.skillId,
+        badges: {
+          ...item.badges,
+          highlighted: {
+            byUserId: item.ownerUserId,
+            at,
+          },
+        },
+      })
+    }
+
+    if (isDone) break
+  }
+
+  if (!isDone) {
+    throw new ConvexError('Backfill incomplete (maxBatches reached)')
+  }
+
+  return { ok: true as const, stats: totals }
+}
+
+export const backfillSkillBadgesInternal = internalAction({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    batchSize: v.optional(v.number()),
+    maxBatches: v.optional(v.number()),
+  },
+  handler: backfillSkillBadgesInternalHandler,
+})
+
+export const backfillSkillBadges: ReturnType<typeof action> = action({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    batchSize: v.optional(v.number()),
+    maxBatches: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<BadgeBackfillActionResult> => {
+    const { user } = await requireUserFromAction(ctx)
+    assertRole(user, ['admin'])
+    return ctx.runAction(internal.maintenance.backfillSkillBadgesInternal, args) as Promise<
+      BadgeBackfillActionResult
+    >
+  },
+})
+
+export const scheduleBackfillSkillBadges: ReturnType<typeof action> = action({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const { user } = await requireUserFromAction(ctx)
+    assertRole(user, ['admin'])
+    await ctx.scheduler.runAfter(0, internal.maintenance.backfillSkillBadgesInternal, {
       dryRun: Boolean(args.dryRun),
       batchSize: DEFAULT_BATCH_SIZE,
       maxBatches: DEFAULT_MAX_BATCHES,

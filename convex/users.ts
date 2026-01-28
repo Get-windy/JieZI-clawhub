@@ -2,7 +2,7 @@ import { getAuthUserId } from '@convex-dev/auth/server'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
-import { assertRole, requireUser } from './lib/access'
+import { assertAdmin, requireUser } from './lib/access'
 
 const DEFAULT_ROLE = 'user'
 const ADMIN_HANDLE = 'steipete'
@@ -78,7 +78,7 @@ export const list = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const { user } = await requireUser(ctx)
-    assertRole(user, ['admin'])
+    assertAdmin(user)
     const limit = args.limit ?? 50
     return ctx.db.query('users').order('desc').take(limit)
   },
@@ -101,7 +101,7 @@ export const setRole = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireUser(ctx)
-    assertRole(user, ['admin'])
+    assertAdmin(user)
     await ctx.db.patch(args.userId, { role: args.role, updatedAt: Date.now() })
     await ctx.db.insert('auditLogs', {
       actorUserId: user._id,

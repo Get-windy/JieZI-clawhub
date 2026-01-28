@@ -9,7 +9,7 @@ export const Route = createFileRoute('/dashboard')({
 })
 
 function Dashboard() {
-  const me = useQuery(api.users.me)
+  const me = useQuery(api.users.me) as Doc<'users'> | null | undefined
   const mySkills = useQuery(
     api.skills.list,
     me?._id ? { ownerUserId: me._id, limit: 100 } : 'skip',

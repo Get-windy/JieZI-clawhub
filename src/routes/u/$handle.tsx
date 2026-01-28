@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { SkillCard } from '../../components/SkillCard'
+import { getSkillBadges } from '../../lib/badges'
 
 export const Route = createFileRoute('/u/$handle')({
   component: UserProfile,
@@ -11,7 +12,7 @@ export const Route = createFileRoute('/u/$handle')({
 
 function UserProfile() {
   const { handle } = Route.useParams()
-  const me = useQuery(api.users.me)
+  const me = useQuery(api.users.me) as Doc<'users'> | null | undefined
   const user = useQuery(api.users.getByHandle, { handle }) as Doc<'users'> | null | undefined
   const publishedSkills = useQuery(
     api.skills.list,
@@ -119,7 +120,7 @@ function UserProfile() {
                 <SkillCard
                   key={skill._id}
                   skill={skill}
-                  badge={skill.batch === 'highlighted' ? 'Highlighted' : undefined}
+                  badge={getSkillBadges(skill)}
                   summaryFallback="Agent-ready skill pack."
                   meta={
                     <div className="stat">
@@ -149,7 +150,7 @@ function UserProfile() {
                 <SkillCard
                   key={skill._id}
                   skill={skill}
-                  badge={skill.batch === 'highlighted' ? 'Highlighted' : undefined}
+                  badge={getSkillBadges(skill)}
                   summaryFallback="Agent-ready skill pack."
                   meta={
                     <div className="stat">

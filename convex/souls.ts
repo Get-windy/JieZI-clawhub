@@ -2,7 +2,7 @@ import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
-import { assertRole, requireUser, requireUserFromAction } from './lib/access'
+import { assertModerator, requireUser, requireUserFromAction } from './lib/access'
 import { getFrontmatterValue, hashSkillFiles } from './lib/skills'
 import { generateSoulChangelogPreview } from './lib/soulChangelog'
 import { fetchText, type PublishResult, publishSoulVersionForUser } from './lib/soulPublish'
@@ -309,7 +309,7 @@ export const updateTags = mutation({
     const soul = await ctx.db.get(args.soulId)
     if (!soul) throw new Error('Soul not found')
     if (soul.ownerUserId !== user._id) {
-      assertRole(user, ['admin', 'moderator'])
+      assertModerator(user)
     }
 
     const nextTags = { ...soul.tags }
@@ -506,7 +506,7 @@ export const setSoulSoftDeletedInternal = internalMutation({
     if (!soul) throw new Error('Soul not found')
 
     if (soul.ownerUserId !== args.userId) {
-      assertRole(user, ['admin', 'moderator'])
+      assertModerator(user)
     }
 
     const now = Date.now()

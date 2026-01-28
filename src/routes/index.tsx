@@ -6,20 +6,10 @@ import type { Doc } from '../../convex/_generated/dataModel'
 import { InstallSwitcher } from '../components/InstallSwitcher'
 import { SkillCard } from '../components/SkillCard'
 import { SoulCard } from '../components/SoulCard'
+import { getSkillBadges } from '../lib/badges'
 import { getSiteMode } from '../lib/site'
 
 export const Route = createFileRoute('/')({
-  validateSearch: (search) => ({
-    q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
-    highlighted:
-      search.highlighted === '1' || search.highlighted === 'true' || search.highlighted === true
-        ? true
-        : undefined,
-    search:
-      search.search === '1' || search.search === 'true' || search.search === true
-        ? true
-        : undefined,
-  }),
   component: Home,
 })
 
@@ -73,7 +63,7 @@ function SkillsHome() {
       </section>
 
       <section className="section">
-        <h2 className="section-title">Highlighted batch</h2>
+        <h2 className="section-title">Highlighted skills</h2>
         <p className="section-subtitle">Curated signal — highlighted for quick trust.</p>
         <div className="grid">
           {highlighted.length === 0 ? (
@@ -83,7 +73,7 @@ function SkillsHome() {
               <SkillCard
                 key={skill._id}
                 skill={skill}
-                badge="Highlighted"
+                badge={getSkillBadges(skill)}
                 summaryFallback="A fresh skill bundle."
                 meta={
                   <div className="stat">
@@ -141,30 +131,11 @@ function SkillsHome() {
 
 function OnlyCrabsHome() {
   const navigate = Route.useNavigate()
-  const search = Route.useSearch()
-  const searchSouls = useAction(api.search.searchSouls)
   const ensureSoulSeeds = useAction(api.seed.ensureSoulSeeds)
   const latest = (useQuery(api.souls.list, { limit: 12 }) as Doc<'souls'>[]) ?? []
-  const [query, setQuery] = useState(search.q ?? '')
-  const [results, setResults] = useState<
-    Array<{ soul: Doc<'souls'>; version: Doc<'soulVersions'> | null; score: number }>
-  >([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchMode, setSearchMode] = useState(Boolean(search.q || search.search))
-  const searchRequest = useRef(0)
+  const [query, setQuery] = useState('')
   const seedEnsuredRef = useRef(false)
-  const inputRef = useRef<HTMLInputElement | null>(null)
   const trimmedQuery = useMemo(() => query.trim(), [query])
-  const hasQuery = trimmedQuery.length > 0
-
-  useEffect(() => {
-    setQuery(search.q ?? '')
-    if (search.q || search.search) {
-      setSearchMode(true)
-    } else {
-      setSearchMode(false)
-    }
-  }, [search.q, search.search])
 
   useEffect(() => {
     if (seedEnsuredRef.current) return
@@ -172,56 +143,9 @@ function OnlyCrabsHome() {
     void ensureSoulSeeds({})
   }, [ensureSoulSeeds])
 
-  useEffect(() => {
-    void navigate({
-      search: () => ({
-        q: trimmedQuery || undefined,
-        highlighted: undefined,
-        search: searchMode && !trimmedQuery ? true : undefined,
-      }),
-      replace: true,
-    })
-  }, [navigate, searchMode, trimmedQuery])
-
-  useEffect(() => {
-    if (searchMode && inputRef.current) {
-      inputRef.current.focus()
-    }
-  }, [searchMode])
-
-  useEffect(() => {
-    if (!trimmedQuery) {
-      setResults([])
-      setIsSearching(false)
-      return
-    }
-    searchRequest.current += 1
-    const requestId = searchRequest.current
-    setIsSearching(true)
-    const handle = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const data = (await searchSouls({ query: trimmedQuery })) as Array<{
-            soul: Doc<'souls'>
-            version: Doc<'soulVersions'> | null
-            score: number
-          }>
-          if (requestId === searchRequest.current) {
-            setResults(data)
-          }
-        } finally {
-          if (requestId === searchRequest.current) {
-            setIsSearching(false)
-          }
-        }
-      })()
-    }, 220)
-    return () => window.clearTimeout(handle)
-  }, [searchSouls, trimmedQuery])
-
   return (
     <main>
-      <section className={`hero${searchMode ? ' search-mode' : ''}`}>
+      <section className="hero">
         <div className="hero-inner">
           <div className="hero-copy fade-up" data-delay="1">
             <span className="hero-badge">SOUL.md, shared.</span>
@@ -248,99 +172,63 @@ function OnlyCrabsHome() {
               className="search-bar"
               onSubmit={(event) => {
                 event.preventDefault()
-                if (!searchMode) setSearchMode(true)
-                inputRef.current?.focus()
+                void navigate({
+                  to: '/souls',
+                  search: {
+                    q: trimmedQuery || undefined,
+                    sort: undefined,
+                    dir: undefined,
+                    view: undefined,
+                  },
+                })
               }}
             >
               <span className="mono">/</span>
               <input
-                ref={inputRef}
                 className="search-input"
                 placeholder="Search souls, prompts, or lore"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                onFocus={() => setSearchMode(true)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape' && !trimmedQuery) {
-                    setSearchMode(false)
-                    inputRef.current?.blur()
-                  }
-                }}
               />
             </form>
-            {!searchMode ? (
-              <div className="hero-install" style={{ marginTop: 18 }}>
-                <div className="stat">Search souls. Versioned, readable, easy to remix.</div>
-              </div>
-            ) : null}
+            <div className="hero-install" style={{ marginTop: 18 }}>
+              <div className="stat">Search souls. Versioned, readable, easy to remix.</div>
+            </div>
           </div>
         </div>
       </section>
 
-      {searchMode ? (
-        <section className="section">
-          <h2 className="section-title">Search results</h2>
-          <p className="section-subtitle">
-            {isSearching ? 'Searching now.' : 'Instant results as you type.'}
-          </p>
-          <div className="grid">
-            {!hasQuery ? (
-              <div className="card">Start typing to search.</div>
-            ) : results.length === 0 ? (
-              <div className="card">No results yet. Try a different prompt.</div>
-            ) : (
-              results.map((result) => (
-                <Link
-                  key={result.soul._id}
-                  to="/souls/$slug"
-                  params={{ slug: result.soul.slug }}
-                  className="card"
-                >
-                  <div className="tag">Score {(result.score ?? 0).toFixed(2)}</div>
-                  <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
-                    {result.soul.displayName}
-                  </h3>
-                  <p className="section-subtitle" style={{ margin: 0 }}>
-                    {result.soul.summary ?? 'SOUL.md bundle'}
-                  </p>
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
-      ) : (
-        <section className="section">
-          <h2 className="section-title">Latest souls</h2>
-          <p className="section-subtitle">Newest SOUL.md bundles across the hub.</p>
-          <div className="grid">
-            {latest.length === 0 ? (
-              <div className="card">No souls yet. Be the first.</div>
-            ) : (
-              latest.map((soul) => (
-                <SoulCard
-                  key={soul._id}
-                  soul={soul}
-                  summaryFallback="A SOUL.md bundle."
-                  meta={
-                    <div className="stat">
-                      ⭐ {soul.stats.stars} · ⤓ {soul.stats.downloads} · {soul.stats.versions} v
-                    </div>
-                  }
-                />
-              ))
-            )}
-          </div>
-          <div className="section-cta">
-            <Link
-              to="/souls"
-              search={{ q: undefined, sort: undefined, dir: undefined, view: undefined }}
-              className="btn"
-            >
-              See all souls
-            </Link>
-          </div>
-        </section>
-      )}
+      <section className="section">
+        <h2 className="section-title">Latest souls</h2>
+        <p className="section-subtitle">Newest SOUL.md bundles across the hub.</p>
+        <div className="grid">
+          {latest.length === 0 ? (
+            <div className="card">No souls yet. Be the first.</div>
+          ) : (
+            latest.map((soul) => (
+              <SoulCard
+                key={soul._id}
+                soul={soul}
+                summaryFallback="A SOUL.md bundle."
+                meta={
+                  <div className="stat">
+                    ⭐ {soul.stats.stars} · ⤓ {soul.stats.downloads} · {soul.stats.versions} v
+                  </div>
+                }
+              />
+            ))
+          )}
+        </div>
+        <div className="section-cta">
+          <Link
+            to="/souls"
+            search={{ q: undefined, sort: undefined, dir: undefined, view: undefined }}
+            className="btn"
+          >
+            See all souls
+          </Link>
+        </div>
+      </section>
     </main>
   )
 }

@@ -222,7 +222,7 @@ export async function queueHighlightedWebhook(ctx: MutationCtx, skillId: Id<'ski
     summary: skill.summary ?? undefined,
     version: latestVersion?.version ?? undefined,
     ownerHandle: owner?.handle ?? owner?.name ?? undefined,
-    batch: skill.batch ?? undefined,
+    highlighted: Boolean(skill.badges?.highlighted),
     tags: Object.keys(skill.tags ?? {}),
   }
 
@@ -268,7 +268,7 @@ async function schedulePublishWebhook(
     summary: result.skill.summary ?? undefined,
     version: params.version,
     ownerHandle: result.owner?.handle ?? result.owner?.name ?? undefined,
-    batch: result.skill.batch ?? undefined,
+    highlighted: Boolean(result.skill.badges?.highlighted),
     tags: Object.keys(result.skill.tags ?? {}),
   }
 

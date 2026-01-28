@@ -26,3 +26,11 @@ export function assertRole(user: Doc<'users'>, allowed: Role[]) {
     throw new Error('Forbidden')
   }
 }
+
+export function assertAdmin(user: Doc<'users'>) {
+  assertRole(user, ['admin'])
+}
+
+export function assertModerator(user: Doc<'users'>) {
+  assertRole(user, ['admin', 'moderator'])
+}

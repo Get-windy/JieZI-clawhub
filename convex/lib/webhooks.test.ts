@@ -40,7 +40,7 @@ describe('webhook filtering', () => {
     }
     const allowed = shouldSendWebhook(
       'skill.publish',
-      { slug: 'demo', displayName: 'Demo', batch: 'latest' },
+      { slug: 'demo', displayName: 'Demo', highlighted: false },
       config,
     )
     expect(allowed).toBe(false)
@@ -54,7 +54,7 @@ describe('webhook filtering', () => {
     }
     const allowed = shouldSendWebhook(
       'skill.highlighted',
-      { slug: 'demo', displayName: 'Demo', batch: 'latest' },
+      { slug: 'demo', displayName: 'Demo', highlighted: true },
       config,
     )
     expect(allowed).toBe(true)

@@ -29,7 +29,7 @@ read_when:
 - `handle` (GitHub login)
 - `name`, `bio`
 - `avatarUrl` (GitHub, fallback gravatar)
-- `role`: `admin | moderator | user`
+- `role`: `admin | moderator | user` (moderators can soft-delete and flag; admins can hard-delete + change owners)
 - `createdAt`, `updatedAt`
 
 ### Skill
@@ -40,9 +40,14 @@ read_when:
 - `latestVersionId`
 - `latestTagVersionId` (for `latest` tag)
 - `tags` map: `{ tag -> versionId }`
-- `badges`: `{ redactionApproved?: { byUserId, at } }`
+- `badges`: `{ redactionApproved?: { byUserId, at }, highlighted?: { byUserId, at }, official?: { byUserId, at }, deprecated?: { byUserId, at } }`
+  - `official` marks admin-verified/official skills.
+  - `deprecated` marks skills that should not be used for new integrations.
+- `moderationStatus`: `active | hidden | removed`
+- `moderationFlags`: `string[]` (automatic detection)
+- `moderationNotes`, `moderationReason`
+- `hiddenAt`, `hiddenBy`, `lastReviewedAt`, `reportCount`
 - `stats`: `{ downloads, stars, versions, comments }`
-- `status`: `active` only (soft-delete on version/comment only)
 - `createdAt`, `updatedAt`
 
 ### SkillVersion
@@ -118,7 +123,8 @@ From SKILL.md frontmatter + AgentSkills + Moltbot extensions:
 ## Auth + roles
 - Convex Auth with GitHub OAuth App.
 - Default role `user`; bootstrap `steipete` to `admin` on first login.
-- Admin UI to promote/demote roles; all changes logged.
+- Management console: moderators can hide/restore skills + mark duplicates; admins can change owners, approve badges, and hard-delete.
+- Role changes are admin-only and audited.
 
 ## Upload flow (50MB per version)
 1) Client requests upload session.
@@ -151,7 +157,7 @@ Seed data lives in `convex/seed.ts` for local dev.
 - Soft-delete versions; downloads remain for non-deleted versions only.
 
 ## UI (SPA)
-- Home: search + filters + trending/featured + “Highlighted” batch.
+- Home: search + filters + trending/featured + “Highlighted” badge.
 - Skill detail: README render, files list, version history, tags, stats, badges.
 - Upload/edit: file picker + version + tag + changelog.
 - Account settings: name + delete account (soft delete).

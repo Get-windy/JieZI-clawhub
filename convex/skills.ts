@@ -5,9 +5,16 @@ import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
-import { assertRole, requireUser, requireUserFromAction } from './lib/access'
+import { assertAdmin, assertModerator, requireUser, requireUserFromAction } from './lib/access'
+import {
+  buildDeprecatedBadge,
+  buildHighlightBadge,
+  buildOfficialBadge,
+  isSkillHighlighted,
+} from './lib/badges'
 import { generateChangelogPreview as buildChangelogPreview } from './lib/changelog'
 import { buildTrendingLeaderboard } from './lib/leaderboards'
+import { deriveModerationFlags } from './lib/moderation'
 import {
   fetchText,
   type PublishResult,
@@ -39,6 +46,12 @@ type PublicSkillEntry = {
   ownerHandle: string | null
 }
 
+type ManagementSkillEntry = {
+  skill: Doc<'skills'>
+  latestVersion: Doc<'skillVersions'> | null
+  owner: Doc<'users'> | null
+}
+
 async function buildPublicSkillEntries(ctx: QueryCtx, skills: Doc<'skills'>[]) {
   const ownerHandleCache = new Map<Id<'users'>, Promise<string | null>>()
 
@@ -59,6 +72,28 @@ async function buildPublicSkillEntries(ctx: QueryCtx, skills: Doc<'skills'>[]) {
       return { skill, latestVersion, ownerHandle }
     }),
   ) satisfies Promise<PublicSkillEntry[]>
+}
+
+async function buildManagementSkillEntries(ctx: QueryCtx, skills: Doc<'skills'>[]) {
+  const ownerCache = new Map<Id<'users'>, Promise<Doc<'users'> | null>>()
+
+  const getOwner = (ownerUserId: Id<'users'>) => {
+    const cached = ownerCache.get(ownerUserId)
+    if (cached) return cached
+    const ownerPromise = ctx.db.get(ownerUserId)
+    ownerCache.set(ownerUserId, ownerPromise)
+    return ownerPromise
+  }
+
+  return Promise.all(
+    skills.map(async (skill) => {
+      const [latestVersion, owner] = await Promise.all([
+        skill.latestVersionId ? ctx.db.get(skill.latestVersionId) : null,
+        getOwner(skill.ownerUserId),
+      ])
+      return { skill, latestVersion, owner }
+    }),
+  ) satisfies Promise<ManagementSkillEntry[]>
 }
 
 export const getBySlug = query({
@@ -130,6 +165,12 @@ export const list = query({
     const limit = clampInt(args.limit ?? 24, 1, MAX_LIST_BULK_LIMIT)
     const takeLimit = Math.min(limit * 5, MAX_LIST_TAKE)
     if (args.batch) {
+      if (args.batch === 'highlighted') {
+        const entries = await ctx.db.query('skills').order('desc').take(takeLimit)
+        return entries
+          .filter((skill) => !skill.softDeletedAt && isSkillHighlighted(skill))
+          .slice(0, limit)
+      }
       const entries = await ctx.db
         .query('skills')
         .withIndex('by_batch', (q) => q.eq('batch', args.batch))
@@ -162,11 +203,15 @@ export const listWithLatest = query({
     const takeLimit = Math.min(limit * 5, MAX_LIST_TAKE)
     let entries: Doc<'skills'>[] = []
     if (args.batch) {
-      entries = await ctx.db
-        .query('skills')
-        .withIndex('by_batch', (q) => q.eq('batch', args.batch))
-        .order('desc')
-        .take(takeLimit)
+      if (args.batch === 'highlighted') {
+        entries = await ctx.db.query('skills').order('desc').take(takeLimit)
+      } else {
+        entries = await ctx.db
+          .query('skills')
+          .withIndex('by_batch', (q) => q.eq('batch', args.batch))
+          .order('desc')
+          .take(takeLimit)
+      }
     } else if (args.ownerUserId) {
       const ownerUserId = args.ownerUserId
       entries = await ctx.db
@@ -178,7 +223,10 @@ export const listWithLatest = query({
       entries = await ctx.db.query('skills').order('desc').take(takeLimit)
     }
 
-    const filtered = entries.filter((skill) => !skill.softDeletedAt).slice(0, limit)
+    const filtered = entries
+      .filter((skill) => !skill.softDeletedAt)
+      .filter((skill) => (args.batch === 'highlighted' ? isSkillHighlighted(skill) : true))
+      .slice(0, limit)
     const items = await Promise.all(
       filtered.map(async (skill) => ({
         skill,
@@ -186,6 +234,120 @@ export const listWithLatest = query({
       })),
     )
     return items
+  },
+})
+
+export const listForManagement = query({
+  args: {
+    limit: v.optional(v.number()),
+    includeDeleted: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertModerator(user)
+    const limit = clampInt(args.limit ?? 50, 1, MAX_LIST_BULK_LIMIT)
+    const takeLimit = Math.min(limit * 5, MAX_LIST_TAKE)
+    const entries = await ctx.db.query('skills').order('desc').take(takeLimit)
+    const filtered = (args.includeDeleted ? entries : entries.filter((skill) => !skill.softDeletedAt))
+      .slice(0, limit)
+    return buildManagementSkillEntries(ctx, filtered)
+  },
+})
+
+export const listRecentVersions = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertModerator(user)
+    const limit = clampInt(args.limit ?? 20, 1, MAX_LIST_BULK_LIMIT)
+    const versions = await ctx.db.query('skillVersions').order('desc').take(limit * 2)
+    const entries = versions.filter((version) => !version.softDeletedAt).slice(0, limit)
+
+    const results: Array<{
+      version: Doc<'skillVersions'>
+      skill: Doc<'skills'> | null
+      owner: Doc<'users'> | null
+    }> = []
+
+    for (const version of entries) {
+      const skill = await ctx.db.get(version.skillId)
+      if (!skill) {
+        results.push({ version, skill: null, owner: null })
+        continue
+      }
+      const owner = await ctx.db.get(skill.ownerUserId)
+      results.push({ version, skill, owner })
+    }
+
+    return results
+  },
+})
+
+export const listFlaggedSkills = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertModerator(user)
+    const limit = clampInt(args.limit ?? 25, 1, MAX_LIST_BULK_LIMIT)
+    const takeLimit = Math.min(limit * 5, MAX_LIST_TAKE)
+    const entries = await ctx.db.query('skills').order('desc').take(takeLimit)
+    const flagged = entries
+      .filter((skill) => (skill.moderationFlags?.length ?? 0) > 0)
+      .slice(0, limit)
+    return buildManagementSkillEntries(ctx, flagged)
+  },
+})
+
+export const listDuplicateCandidates = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertModerator(user)
+    const limit = clampInt(args.limit ?? 20, 1, MAX_LIST_BULK_LIMIT)
+    const takeLimit = Math.min(limit * 5, MAX_LIST_TAKE)
+    const skills = await ctx.db.query('skills').order('desc').take(takeLimit)
+    const entries = skills.filter((skill) => !skill.softDeletedAt).slice(0, limit)
+
+    const results: Array<{
+      skill: Doc<'skills'>
+      latestVersion: Doc<'skillVersions'> | null
+      fingerprint: string | null
+      matches: Array<{ skill: Doc<'skills'>; owner: Doc<'users'> | null }>
+      owner: Doc<'users'> | null
+    }> = []
+
+    for (const skill of entries) {
+      const latestVersion = skill.latestVersionId ? await ctx.db.get(skill.latestVersionId) : null
+      const fingerprint = latestVersion?.fingerprint ?? null
+      if (!fingerprint) continue
+
+      const matchedFingerprints = await ctx.db
+        .query('skillVersionFingerprints')
+        .withIndex('by_fingerprint', (q) => q.eq('fingerprint', fingerprint))
+        .take(10)
+
+      const matchEntries: Array<{ skill: Doc<'skills'>; owner: Doc<'users'> | null }> = []
+      for (const match of matchedFingerprints) {
+        if (match.skillId === skill._id) continue
+        const matchSkill = await ctx.db.get(match.skillId)
+        if (!matchSkill || matchSkill.softDeletedAt) continue
+        const matchOwner = await ctx.db.get(matchSkill.ownerUserId)
+        matchEntries.push({ skill: matchSkill, owner: matchOwner })
+      }
+
+      if (matchEntries.length === 0) continue
+
+      const owner = await ctx.db.get(skill.ownerUserId)
+      results.push({
+        skill,
+        latestVersion,
+        fingerprint,
+        matches: matchEntries,
+        owner,
+      })
+    }
+
+    return results
   },
 })
 
@@ -530,7 +692,7 @@ export const updateTags = mutation({
     const skill = await ctx.db.get(args.skillId)
     if (!skill) throw new Error('Skill not found')
     if (skill.ownerUserId !== user._id) {
-      assertRole(user, ['admin', 'moderator'])
+      assertModerator(user)
     }
 
     const nextTags = { ...skill.tags }
@@ -566,7 +728,7 @@ export const setRedactionApproved = mutation({
   args: { skillId: v.id('skills'), approved: v.boolean() },
   handler: async (ctx, args) => {
     const { user } = await requireUser(ctx)
-    assertRole(user, ['admin', 'moderator'])
+    assertAdmin(user)
 
     const skill = await ctx.db.get(args.skillId)
     if (!skill) throw new Error('Skill not found')
@@ -575,6 +737,7 @@ export const setRedactionApproved = mutation({
 
     await ctx.db.patch(skill._id, {
       badges: { ...skill.badges, redactionApproved: badge },
+      lastReviewedAt: Date.now(),
       updatedAt: Date.now(),
     })
 
@@ -605,27 +768,365 @@ export const setBatch = mutation({
   args: { skillId: v.id('skills'), batch: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const { user } = await requireUser(ctx)
-    assertRole(user, ['admin', 'moderator'])
+    assertModerator(user)
     const skill = await ctx.db.get(args.skillId)
     if (!skill) throw new Error('Skill not found')
-    const previousBatch = skill.batch ?? undefined
+    const previousHighlighted = isSkillHighlighted(skill)
     const nextBatch = args.batch?.trim() || undefined
+    const nextHighlighted = nextBatch === 'highlighted'
+    const badge = nextHighlighted ? buildHighlightBadge(user._id, Date.now()) : undefined
+
     await ctx.db.patch(skill._id, {
       batch: nextBatch,
+      badges: { ...skill.badges, highlighted: badge },
       updatedAt: Date.now(),
     })
     await ctx.db.insert('auditLogs', {
       actorUserId: user._id,
-      action: 'batch.set',
+      action: 'badge.highlighted',
       targetType: 'skill',
       targetId: skill._id,
-      metadata: { batch: args.batch?.trim() ?? null },
+      metadata: { highlighted: nextHighlighted },
       createdAt: Date.now(),
     })
 
-    if (nextBatch === 'highlighted' && previousBatch !== 'highlighted') {
+    if (nextHighlighted && !previousHighlighted) {
       void queueHighlightedWebhook(ctx, skill._id)
     }
+  },
+})
+
+export const setSoftDeleted = mutation({
+  args: { skillId: v.id('skills'), deleted: v.boolean() },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertModerator(user)
+    const skill = await ctx.db.get(args.skillId)
+    if (!skill) throw new Error('Skill not found')
+
+    const now = Date.now()
+    await ctx.db.patch(skill._id, {
+      softDeletedAt: args.deleted ? now : undefined,
+      moderationStatus: args.deleted ? 'hidden' : 'active',
+      hiddenAt: args.deleted ? now : undefined,
+      hiddenBy: args.deleted ? user._id : undefined,
+      lastReviewedAt: now,
+      updatedAt: now,
+    })
+
+    const embeddings = await ctx.db
+      .query('skillEmbeddings')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const embedding of embeddings) {
+      await ctx.db.patch(embedding._id, {
+        visibility: args.deleted
+          ? 'deleted'
+          : visibilityFor(embedding.isLatest, embedding.isApproved),
+        updatedAt: now,
+      })
+    }
+
+    await ctx.db.insert('auditLogs', {
+      actorUserId: user._id,
+      action: args.deleted ? 'skill.delete' : 'skill.undelete',
+      targetType: 'skill',
+      targetId: skill._id,
+      metadata: { slug: skill.slug, softDeletedAt: args.deleted ? now : null },
+      createdAt: now,
+    })
+  },
+})
+
+export const changeOwner = mutation({
+  args: { skillId: v.id('skills'), ownerUserId: v.id('users') },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertAdmin(user)
+    const skill = await ctx.db.get(args.skillId)
+    if (!skill) throw new Error('Skill not found')
+
+    const nextOwner = await ctx.db.get(args.ownerUserId)
+    if (!nextOwner || nextOwner.deletedAt) throw new Error('User not found')
+
+    if (skill.ownerUserId === args.ownerUserId) return
+
+    const now = Date.now()
+    await ctx.db.patch(skill._id, {
+      ownerUserId: args.ownerUserId,
+      lastReviewedAt: now,
+      updatedAt: now,
+    })
+
+    const embeddings = await ctx.db
+      .query('skillEmbeddings')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const embedding of embeddings) {
+      await ctx.db.patch(embedding._id, {
+        ownerId: args.ownerUserId,
+        updatedAt: now,
+      })
+    }
+
+    await ctx.db.insert('auditLogs', {
+      actorUserId: user._id,
+      action: 'skill.owner.change',
+      targetType: 'skill',
+      targetId: skill._id,
+      metadata: { from: skill.ownerUserId, to: args.ownerUserId },
+      createdAt: now,
+    })
+  },
+})
+
+export const setDuplicate = mutation({
+  args: { skillId: v.id('skills'), canonicalSlug: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertModerator(user)
+    const skill = await ctx.db.get(args.skillId)
+    if (!skill) throw new Error('Skill not found')
+
+    const now = Date.now()
+    const canonicalSlug = args.canonicalSlug?.trim().toLowerCase()
+
+    if (!canonicalSlug) {
+      await ctx.db.patch(skill._id, {
+        canonicalSkillId: undefined,
+        forkOf: undefined,
+        lastReviewedAt: now,
+        updatedAt: now,
+      })
+      await ctx.db.insert('auditLogs', {
+        actorUserId: user._id,
+        action: 'skill.duplicate.clear',
+        targetType: 'skill',
+        targetId: skill._id,
+        metadata: { canonicalSlug: null },
+        createdAt: now,
+      })
+      return
+    }
+
+    const canonical = await ctx.db
+      .query('skills')
+      .withIndex('by_slug', (q) => q.eq('slug', canonicalSlug))
+      .unique()
+    if (!canonical) throw new Error('Canonical skill not found')
+    if (canonical._id === skill._id) throw new Error('Cannot duplicate a skill onto itself')
+
+    const canonicalVersion = canonical.latestVersionId
+      ? await ctx.db.get(canonical.latestVersionId)
+      : null
+
+    await ctx.db.patch(skill._id, {
+      canonicalSkillId: canonical._id,
+      forkOf: {
+        skillId: canonical._id,
+        kind: 'duplicate',
+        version: canonicalVersion?.version,
+        at: now,
+      },
+      lastReviewedAt: now,
+      updatedAt: now,
+    })
+
+    await ctx.db.insert('auditLogs', {
+      actorUserId: user._id,
+      action: 'skill.duplicate.set',
+      targetType: 'skill',
+      targetId: skill._id,
+      metadata: { canonicalSlug },
+      createdAt: now,
+    })
+  },
+})
+
+export const setOfficialBadge = mutation({
+  args: { skillId: v.id('skills'), official: v.boolean() },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertAdmin(user)
+    const skill = await ctx.db.get(args.skillId)
+    if (!skill) throw new Error('Skill not found')
+
+    const now = Date.now()
+    const badge = args.official ? buildOfficialBadge(user._id, now) : undefined
+
+    await ctx.db.patch(skill._id, {
+      badges: { ...skill.badges, official: badge },
+      lastReviewedAt: now,
+      updatedAt: now,
+    })
+
+    await ctx.db.insert('auditLogs', {
+      actorUserId: user._id,
+      action: args.official ? 'badge.official.set' : 'badge.official.unset',
+      targetType: 'skill',
+      targetId: skill._id,
+      metadata: { official: args.official },
+      createdAt: now,
+    })
+  },
+})
+
+export const setDeprecatedBadge = mutation({
+  args: { skillId: v.id('skills'), deprecated: v.boolean() },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertAdmin(user)
+    const skill = await ctx.db.get(args.skillId)
+    if (!skill) throw new Error('Skill not found')
+
+    const now = Date.now()
+    const badge = args.deprecated ? buildDeprecatedBadge(user._id, now) : undefined
+
+    await ctx.db.patch(skill._id, {
+      badges: { ...skill.badges, deprecated: badge },
+      lastReviewedAt: now,
+      updatedAt: now,
+    })
+
+    await ctx.db.insert('auditLogs', {
+      actorUserId: user._id,
+      action: args.deprecated ? 'badge.deprecated.set' : 'badge.deprecated.unset',
+      targetType: 'skill',
+      targetId: skill._id,
+      metadata: { deprecated: args.deprecated },
+      createdAt: now,
+    })
+  },
+})
+
+export const hardDelete = mutation({
+  args: { skillId: v.id('skills') },
+  handler: async (ctx, args) => {
+    const { user } = await requireUser(ctx)
+    assertAdmin(user)
+    const skill = await ctx.db.get(args.skillId)
+    if (!skill) throw new Error('Skill not found')
+
+    const versions = await ctx.db
+      .query('skillVersions')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+
+    for (const version of versions) {
+      const versionFingerprints = await ctx.db
+        .query('skillVersionFingerprints')
+        .withIndex('by_version', (q) => q.eq('versionId', version._id))
+        .collect()
+      for (const fingerprint of versionFingerprints) {
+        await ctx.db.delete(fingerprint._id)
+      }
+
+      const embeddings = await ctx.db
+        .query('skillEmbeddings')
+        .withIndex('by_version', (q) => q.eq('versionId', version._id))
+        .collect()
+      for (const embedding of embeddings) {
+        await ctx.db.delete(embedding._id)
+      }
+
+      await ctx.db.delete(version._id)
+    }
+
+    const remainingFingerprints = await ctx.db
+      .query('skillVersionFingerprints')
+      .withIndex('by_skill_fingerprint', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const fingerprint of remainingFingerprints) {
+      await ctx.db.delete(fingerprint._id)
+    }
+
+    const remainingEmbeddings = await ctx.db
+      .query('skillEmbeddings')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const embedding of remainingEmbeddings) {
+      await ctx.db.delete(embedding._id)
+    }
+
+    const comments = await ctx.db
+      .query('comments')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const comment of comments) {
+      await ctx.db.delete(comment._id)
+    }
+
+    const stars = await ctx.db
+      .query('stars')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const star of stars) {
+      await ctx.db.delete(star._id)
+    }
+
+    const dailyStats = await ctx.db
+      .query('skillDailyStats')
+      .withIndex('by_skill_day', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const stat of dailyStats) {
+      await ctx.db.delete(stat._id)
+    }
+
+    const statEvents = await ctx.db
+      .query('skillStatEvents')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const statEvent of statEvents) {
+      await ctx.db.delete(statEvent._id)
+    }
+
+    const installs = await ctx.db
+      .query('userSkillInstalls')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const install of installs) {
+      await ctx.db.delete(install._id)
+    }
+
+    const rootInstalls = await ctx.db
+      .query('userSkillRootInstalls')
+      .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+      .collect()
+    for (const rootInstall of rootInstalls) {
+      await ctx.db.delete(rootInstall._id)
+    }
+
+    const leaderboards = await ctx.db.query('skillLeaderboards').collect()
+    for (const leaderboard of leaderboards) {
+      const items = leaderboard.items.filter((item) => item.skillId !== skill._id)
+      if (items.length !== leaderboard.items.length) {
+        await ctx.db.patch(leaderboard._id, { items })
+      }
+    }
+
+    const relatedSkills = await ctx.db.query('skills').collect()
+    for (const related of relatedSkills) {
+      if (related._id === skill._id) continue
+      if (related.canonicalSkillId === skill._id || related.forkOf?.skillId === skill._id) {
+        await ctx.db.patch(related._id, {
+          canonicalSkillId:
+            related.canonicalSkillId === skill._id ? undefined : related.canonicalSkillId,
+          forkOf: related.forkOf?.skillId === skill._id ? undefined : related.forkOf,
+          updatedAt: Date.now(),
+        })
+      }
+    }
+
+    await ctx.db.delete(skill._id)
+
+    await ctx.db.insert('auditLogs', {
+      actorUserId: user._id,
+      action: 'skill.hard_delete',
+      targetType: 'skill',
+      targetId: skill._id,
+      metadata: { slug: skill.slug },
+      createdAt: Date.now(),
+    })
   },
 })
 
@@ -716,17 +1217,31 @@ export const insertVersion = internalMutation({
       }
 
       const summary = getFrontmatterValue(args.parsed.frontmatter, 'description')
+      const summaryValue = summary ?? undefined
+      const moderationFlags = deriveModerationFlags({
+        skill: { slug: args.slug, displayName: args.displayName, summary: summaryValue },
+        parsed: args.parsed,
+        files: args.files,
+      })
       const skillId = await ctx.db.insert('skills', {
         slug: args.slug,
         displayName: args.displayName,
-        summary: summary ?? undefined,
+        summary: summaryValue,
         ownerUserId: userId,
         canonicalSkillId,
         forkOf,
         latestVersionId: undefined,
         tags: {},
         softDeletedAt: undefined,
-        badges: { redactionApproved: undefined },
+        badges: {
+          redactionApproved: undefined,
+          highlighted: undefined,
+          official: undefined,
+          deprecated: undefined,
+        },
+        moderationStatus: 'active',
+        moderationFlags: moderationFlags.length ? moderationFlags : undefined,
+        reportCount: 0,
         statsDownloads: 0,
         statsStars: 0,
         statsInstallsCurrent: 0,
@@ -776,13 +1291,22 @@ export const insertVersion = internalMutation({
 
     const latestBefore = skill.latestVersionId
 
+    const nextSummary = getFrontmatterValue(args.parsed.frontmatter, 'description') ?? skill.summary
+    const moderationFlags = deriveModerationFlags({
+      skill: { slug: skill.slug, displayName: args.displayName, summary: nextSummary ?? undefined },
+      parsed: args.parsed,
+      files: args.files,
+    })
+
     await ctx.db.patch(skill._id, {
       displayName: args.displayName,
-      summary: getFrontmatterValue(args.parsed.frontmatter, 'description') ?? skill.summary,
+      summary: nextSummary ?? undefined,
       latestVersionId: versionId,
       tags: nextTags,
       stats: { ...skill.stats, versions: skill.stats.versions + 1 },
       softDeletedAt: undefined,
+      moderationStatus: skill.moderationStatus ?? 'active',
+      moderationFlags: moderationFlags.length ? moderationFlags : undefined,
       updatedAt: now,
     })
 
@@ -842,12 +1366,16 @@ export const setSkillSoftDeletedInternal = internalMutation({
     if (!skill) throw new Error('Skill not found')
 
     if (skill.ownerUserId !== args.userId) {
-      assertRole(user, ['admin', 'moderator'])
+      assertModerator(user)
     }
 
     const now = Date.now()
     await ctx.db.patch(skill._id, {
       softDeletedAt: args.deleted ? now : undefined,
+      moderationStatus: args.deleted ? 'hidden' : 'active',
+      hiddenAt: args.deleted ? now : undefined,
+      hiddenBy: args.deleted ? args.userId : undefined,
+      lastReviewedAt: now,
       updatedAt: now,
     })
 

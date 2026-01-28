@@ -216,18 +216,18 @@ export const NixPluginSpecSchema = type({
     plugin: 'string',
     systems: 'string[]?',
 });
-export const ClawdbotConfigSpecSchema = type({
+export const MoltbotConfigSpecSchema = type({
     requiredEnv: 'string[]?',
     stateDirs: 'string[]?',
     example: 'string?',
 });
-export const ClawdisRequiresSchema = type({
+export const MoltbotRequiresSchema = type({
     bins: 'string[]?',
     anyBins: 'string[]?',
     env: 'string[]?',
     config: 'string[]?',
 });
-export const ClawdisSkillMetadataSchema = type({
+export const MoltbotSkillMetadataSchema = type({
     always: 'boolean?',
     skillKey: 'string?',
     primaryEnv: 'string?',
@@ -235,9 +235,9 @@ export const ClawdisSkillMetadataSchema = type({
     homepage: 'string?',
     os: 'string[]?',
     cliHelp: 'string?',
-    requires: ClawdisRequiresSchema.optional(),
+    requires: MoltbotRequiresSchema.optional(),
     install: SkillInstallSpecSchema.array().optional(),
     nix: NixPluginSpecSchema.optional(),
-    config: ClawdbotConfigSpecSchema.optional(),
+    config: MoltbotConfigSpecSchema.optional(),
 });
 //# sourceMappingURL=schemas.js.map

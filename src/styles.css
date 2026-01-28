@@ -378,9 +378,11 @@ code {
 }
 
 .section {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 24px 72px;
+  box-sizing: border-box;
 }
 
 .upload-shell {
@@ -926,6 +928,7 @@ code {
 }
 
 .card {
+  width: 100%;
   background: var(--surface);
   border-radius: var(--radius-md);
   border: 1px solid var(--line);
@@ -933,6 +936,7 @@ code {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-sizing: border-box;
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;

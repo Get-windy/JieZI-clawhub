@@ -3,6 +3,8 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import { EMBEDDING_DIMENSIONS } from './lib/embeddings'
 
+const authSchema = authTables as unknown as Record<string, ReturnType<typeof defineTable>>
+
 const users = defineTable({
   name: v.optional(v.string()),
   image: v.optional(v.string()),
@@ -47,7 +49,35 @@ const skills = defineTable({
         at: v.number(),
       }),
     ),
+    highlighted: v.optional(
+      v.object({
+        byUserId: v.id('users'),
+        at: v.number(),
+      }),
+    ),
+    official: v.optional(
+      v.object({
+        byUserId: v.id('users'),
+        at: v.number(),
+      }),
+    ),
+    deprecated: v.optional(
+      v.object({
+        byUserId: v.id('users'),
+        at: v.number(),
+      }),
+    ),
   }),
+  moderationStatus: v.optional(
+    v.union(v.literal('active'), v.literal('hidden'), v.literal('removed')),
+  ),
+  moderationNotes: v.optional(v.string()),
+  moderationReason: v.optional(v.string()),
+  moderationFlags: v.optional(v.array(v.string())),
+  lastReviewedAt: v.optional(v.number()),
+  hiddenAt: v.optional(v.number()),
+  hiddenBy: v.optional(v.id('users')),
+  reportCount: v.optional(v.number()),
   batch: v.optional(v.string()),
   statsDownloads: v.optional(v.number()),
   statsStars: v.optional(v.number()),
@@ -377,7 +407,7 @@ const userSkillRootInstalls = defineTable({
   .index('by_skill', ['skillId'])
 
 export default defineSchema({
-  ...authTables,
+  ...authSchema,
   users,
   skills,
   souls,

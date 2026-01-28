@@ -1,4 +1,4 @@
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import type { MoltbotSkillMetadata, SkillInstallSpec } from 'molthub-schema'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useEffect, useMemo, useState } from 'react'
@@ -6,6 +6,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
+import { getSkillBadges } from '../lib/badges'
+import { canManageSkill, isModerator } from '../lib/roles'
 import { useAuthStatus } from '../lib/useAuthStatus'
 import { SkillDiffCard } from './SkillDiffCard'
 
@@ -14,6 +16,22 @@ type SkillDetailPageProps = {
   canonicalOwner?: string
   redirectToCanonical?: boolean
 }
+
+type SkillBySlugResult = {
+  skill: Doc<'skills'>
+  latestVersion: Doc<'skillVersions'> | null
+  owner: Doc<'users'> | null
+  forkOf: {
+    kind: 'fork' | 'duplicate'
+    version: string | null
+    skill: { slug: string; displayName: string }
+    owner: { handle: string | null }
+  } | null
+  canonical: {
+    skill: { slug: string; displayName: string }
+    owner: { handle: string | null }
+  } | null
+} | null
 
 type SkillFile = Doc<'skillVersions'>['files'][number]
 
@@ -24,12 +42,11 @@ export function SkillDetailPage({
 }: SkillDetailPageProps) {
   const navigate = useNavigate()
   const { isAuthenticated, me } = useAuthStatus()
-  const result = useQuery(api.skills.getBySlug, { slug })
+  const result = useQuery(api.skills.getBySlug, { slug }) as SkillBySlugResult | undefined
   const toggleStar = useMutation(api.stars.toggle)
   const addComment = useMutation(api.comments.add)
   const removeComment = useMutation(api.comments.remove)
   const updateTags = useMutation(api.skills.updateTags)
-  const setBatch = useMutation(api.skills.setBatch)
   const getReadme = useAction(api.skills.getReadme)
   const [readme, setReadme] = useState<string | null>(null)
   const [readmeError, setReadmeError] = useState<string | null>(null)
@@ -60,10 +77,8 @@ export function SkillDetailPage({
     skill ? { skillId: skill._id, limit: 50 } : 'skip',
   ) as Array<{ comment: Doc<'comments'>; user: Doc<'users'> | null }> | undefined
 
-  const canManage = Boolean(
-    me && skill && (me._id === skill.ownerUserId || ['admin', 'moderator'].includes(me.role ?? '')),
-  )
-  const canHighlight = Boolean(me && ['admin', 'moderator'].includes(me.role ?? ''))
+  const canManage = canManageSkill(me, skill)
+  const isStaff = isModerator(me)
 
   const ownerHandle = owner?.handle ?? owner?.name ?? null
   const wantsCanonicalRedirect = Boolean(
@@ -221,7 +236,11 @@ export function SkillDetailPage({
                     </a>
                   </div>
                 ) : null}
-                {skill.batch === 'highlighted' ? <div className="tag">Highlighted</div> : null}
+                {getSkillBadges(skill).map((badge) => (
+                  <div key={badge} className="tag">
+                    {badge}
+                  </div>
+                ))}
                 <div className="skill-actions">
                   {isAuthenticated ? (
                     <button
@@ -233,22 +252,10 @@ export function SkillDetailPage({
                       <span aria-hidden="true">★</span>
                     </button>
                   ) : null}
-                  {canHighlight ? (
-                    <button
-                      className={`highlight-toggle${skill.batch === 'highlighted' ? ' is-active' : ''}`}
-                      type="button"
-                      onClick={() =>
-                        void setBatch({
-                          skillId: skill._id,
-                          batch: skill.batch === 'highlighted' ? undefined : 'highlighted',
-                        })
-                      }
-                      aria-label={
-                        skill.batch === 'highlighted' ? 'Unhighlight skill' : 'Highlight skill'
-                      }
-                    >
-                      <span aria-hidden="true">✦</span>
-                    </button>
+                  {isStaff ? (
+                    <Link className="btn" to="/management" search={{ skill: skill.slug }}>
+                      Manage
+                    </Link>
                   ) : null}
                 </div>
               </div>
@@ -614,9 +621,7 @@ export function SkillDetailPage({
                   </div>
                   {isAuthenticated &&
                   me &&
-                  (me._id === entry.comment.userId ||
-                    me.role === 'admin' ||
-                    me.role === 'moderator') ? (
+                  (me._id === entry.comment.userId || isModerator(me)) ? (
                     <button
                       className="btn"
                       type="button"

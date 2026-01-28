@@ -4,7 +4,7 @@ import type { Doc } from '../../convex/_generated/dataModel'
 
 type SkillCardProps = {
   skill: Doc<'skills'>
-  badge?: string
+  badge?: string | string[]
   chip?: string
   summaryFallback: string
   meta: ReactNode
@@ -13,12 +13,17 @@ type SkillCardProps = {
 
 export function SkillCard({ skill, badge, chip, summaryFallback, meta, href }: SkillCardProps) {
   const link = href ?? `/skills/${skill.slug}`
+  const badges = Array.isArray(badge) ? badge : badge ? [badge] : []
 
   return (
     <Link to={link} className="card skill-card">
-      {badge || chip ? (
+      {badges.length || chip ? (
         <div className="skill-card-tags">
-          {badge ? <div className="tag">{badge}</div> : null}
+          {badges.map((label) => (
+            <div key={label} className="tag">
+              {label}
+            </div>
+          ))}
           {chip ? <div className="tag tag-accent tag-compact">{chip}</div> : null}
         </div>
       ) : null}

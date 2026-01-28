@@ -8,7 +8,7 @@ export const Route = createFileRoute('/stars')({
 })
 
 function Stars() {
-  const me = useQuery(api.users.me)
+  const me = useQuery(api.users.me) as Doc<'users'> | null | undefined
   const skills =
     (useQuery(api.stars.listByUser, me ? { userId: me._id, limit: 50 } : 'skip') as
       | Doc<'skills'>[]

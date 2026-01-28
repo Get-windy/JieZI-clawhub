@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "scripts": {
+    "preinstall": "bunx only-allow bun",
     "dev": "bun --bun vite dev --port 3000",
     "build": "bun --bun vite build",
     "preview": "bun --bun vite preview",
@@ -42,7 +43,7 @@
     "@vercel/analytics": "^1.6.1",
     "molthub-schema": "workspace:*",
     "clsx": "^2.1.1",
-    "convex": "^1.31.5",
+    "convex": "^1.31.6",
     "convex-helpers": "^0.1.111",
     "fflate": "^0.8.2",
     "h3": "2.0.1-rc.8",
@@ -72,6 +73,7 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.17",
     "jsdom": "^27.4.0",
+    "only-allow": "^1.2.1",
     "oxlint": "^1.39.0",
     "oxlint-tsgolint": "^0.11.1",
     "typescript": "^5.9.3",

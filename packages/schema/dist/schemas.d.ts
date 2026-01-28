@@ -247,20 +247,20 @@ export declare const NixPluginSpecSchema: import("arktype/internal/variants/obje
     systems?: string[] | undefined;
 }, {}>;
 export type NixPluginSpec = (typeof NixPluginSpecSchema)[inferred];
-export declare const ClawdbotConfigSpecSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+export declare const MoltbotConfigSpecSchema: import("arktype/internal/variants/object.ts").ObjectType<{
     requiredEnv?: string[] | undefined;
     stateDirs?: string[] | undefined;
     example?: string | undefined;
 }, {}>;
-export type ClawdbotConfigSpec = (typeof ClawdbotConfigSpecSchema)[inferred];
-export declare const ClawdisRequiresSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+export type MoltbotConfigSpec = (typeof MoltbotConfigSpecSchema)[inferred];
+export declare const MoltbotRequiresSchema: import("arktype/internal/variants/object.ts").ObjectType<{
     bins?: string[] | undefined;
     anyBins?: string[] | undefined;
     env?: string[] | undefined;
     config?: string[] | undefined;
 }, {}>;
-export type ClawdisRequires = (typeof ClawdisRequiresSchema)[inferred];
-export declare const ClawdisSkillMetadataSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+export type MoltbotRequires = (typeof MoltbotRequiresSchema)[inferred];
+export declare const MoltbotSkillMetadataSchema: import("arktype/internal/variants/object.ts").ObjectType<{
     always?: boolean | undefined;
     skillKey?: string | undefined;
     primaryEnv?: string | undefined;
@@ -294,4 +294,4 @@ export declare const ClawdisSkillMetadataSchema: import("arktype/internal/varian
         example?: string | undefined;
     } | undefined;
 }, {}>;
-export type ClawdisSkillMetadata = (typeof ClawdisSkillMetadataSchema)[inferred];
+export type MoltbotSkillMetadata = (typeof MoltbotSkillMetadataSchema)[inferred];

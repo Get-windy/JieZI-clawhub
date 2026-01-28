@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { SkillCard } from '../../components/SkillCard'
+import { getSkillBadges, isSkillHighlighted } from '../../lib/badges'
 
 const sortKeys = ['newest', 'downloads', 'installs', 'stars', 'name', 'updated'] as const
 const pageSize = 25
@@ -144,7 +145,7 @@ export function SkillsIndex() {
 
   const filtered = useMemo(
     () =>
-      baseItems.filter((entry) => (highlightedOnly ? entry.skill.batch === 'highlighted' : true)),
+      baseItems.filter((entry) => (highlightedOnly ? isSkillHighlighted(entry.skill) : true)),
     [baseItems, highlightedOnly],
   )
 
@@ -330,7 +331,7 @@ export function SkillsIndex() {
                 key={skill._id}
                 skill={skill}
                 href={skillHref}
-                badge={skill.batch === 'highlighted' ? 'Highlighted' : undefined}
+                badge={getSkillBadges(skill)}
                 chip={isPlugin ? 'Plugin bundle (nix)' : undefined}
                 summaryFallback="Agent-ready skill pack."
                 meta={
@@ -355,9 +356,11 @@ export function SkillsIndex() {
                   <div className="skills-row-title">
                     <span>{skill.displayName}</span>
                     <span className="skills-row-slug">/{skill.slug}</span>
-                    {skill.batch === 'highlighted' ? (
-                      <span className="tag">Highlighted</span>
-                    ) : null}
+                    {getSkillBadges(skill).map((badge) => (
+                      <span key={badge} className="tag">
+                        {badge}
+                      </span>
+                    ))}
                     {isPlugin ? (
                       <span className="tag tag-accent tag-compact">Plugin bundle (nix)</span>
                     ) : null}

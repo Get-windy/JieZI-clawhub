@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
-import { assertRole, requireUser } from './lib/access'
+import { assertModerator, requireUser } from './lib/access'
 
 export const listBySoul = query({
   args: { soulId: v.id('souls'), limit: v.optional(v.number()) },
@@ -59,7 +59,7 @@ export const remove = mutation({
 
     const isOwner = comment.userId === user._id
     if (!isOwner) {
-      assertRole(user, ['admin', 'moderator'])
+      assertModerator(user)
     }
 
     await ctx.db.patch(comment._id, {
