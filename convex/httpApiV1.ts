@@ -526,6 +526,64 @@ async function whoamiV1Handler(ctx: ActionCtx, request: Request) {
 
 export const whoamiV1Http = httpAction(whoamiV1Handler)
 
+async function usersPostRouterV1Handler(ctx: ActionCtx, request: Request) {
+  const rate = await applyRateLimit(ctx, request, 'write')
+  if (!rate.ok) return rate.response
+
+  const segments = getPathSegments(request, '/api/v1/users/')
+  if (segments.length !== 1 || segments[0] !== 'ban') {
+    return text('Not found', 404, rate.headers)
+  }
+
+  let payload: Record<string, unknown>
+  try {
+    payload = (await request.json()) as Record<string, unknown>
+  } catch {
+    return text('Invalid JSON', 400, rate.headers)
+  }
+
+  const handleRaw = typeof payload.handle === 'string' ? payload.handle.trim() : ''
+  const userIdRaw = typeof payload.userId === 'string' ? payload.userId.trim() : ''
+  if (!handleRaw && !userIdRaw) {
+    return text('Missing userId or handle', 400, rate.headers)
+  }
+
+  let actorUserId: Id<'users'>
+  try {
+    const auth = await requireApiTokenUser(ctx, request)
+    actorUserId = auth.userId
+  } catch {
+    return text('Unauthorized', 401, rate.headers)
+  }
+
+  let targetUserId: Id<'users'> | null = userIdRaw ? (userIdRaw as Id<'users'>) : null
+  if (!targetUserId) {
+    const handle = handleRaw.toLowerCase()
+    const user = await ctx.runQuery(api.users.getByHandle, { handle })
+    if (!user?._id) return text('User not found', 404, rate.headers)
+    targetUserId = user._id
+  }
+
+  try {
+    const result = await ctx.runMutation(internal.users.banUserInternal, {
+      actorUserId,
+      targetUserId,
+    })
+    return json(result, 200, rate.headers)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ban failed'
+    if (message.toLowerCase().includes('forbidden')) {
+      return text('Forbidden', 403, rate.headers)
+    }
+    if (message.toLowerCase().includes('not found')) {
+      return text(message, 404, rate.headers)
+    }
+    return text(message, 400, rate.headers)
+  }
+}
+
+export const usersPostRouterV1Http = httpAction(usersPostRouterV1Handler)
+
 async function parseMultipartPublish(
   ctx: ActionCtx,
   request: Request,
@@ -1169,4 +1227,5 @@ export const __handlers = {
   starsPostRouterV1Handler,
   starsDeleteRouterV1Handler,
   whoamiV1Handler,
+  usersPostRouterV1Handler,
 }
