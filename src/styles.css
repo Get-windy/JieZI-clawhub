@@ -2826,8 +2826,16 @@ html.theme-transition::view-transition-new(theme) {
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 8px;
+}
+
+.code-insight-analysis.malicious {
   background: rgba(239, 68, 68, 0.06);
   border-left: 3px solid #dc2626;
+}
+
+.code-insight-analysis.suspicious {
+  background: rgba(245, 158, 11, 0.06);
+  border-left: 3px solid #f59e0b;
 }
 
 .code-insight-label {
@@ -2835,8 +2843,15 @@ html.theme-transition::view-transition-new(theme) {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #dc2626;
   margin-bottom: 6px;
+}
+
+.code-insight-analysis.malicious .code-insight-label {
+  color: #dc2626;
+}
+
+.code-insight-analysis.suspicious .code-insight-label {
+  color: #f59e0b;
 }
 
 .code-insight-text {
@@ -2855,8 +2870,12 @@ html.theme-transition::view-transition-new(theme) {
   word-break: break-all;
 }
 
-[data-theme="dark"] .code-insight-analysis {
+[data-theme="dark"] .code-insight-analysis.malicious {
   background: rgba(239, 68, 68, 0.12);
+}
+
+[data-theme="dark"] .code-insight-analysis.suspicious {
+  background: rgba(245, 158, 11, 0.12);
 }
 
 [data-theme="dark"] .code-insight-text code {

@@ -164,7 +164,7 @@ function SecurityScanResults({
           ) : null}
         </div>
         {isCodeInsight && aiAnalysis && (status === 'malicious' || status === 'suspicious') ? (
-          <div className="code-insight-analysis">
+          <div className={`code-insight-analysis ${status}`}>
             <div className="code-insight-label">Code Insight</div>
             <p className="code-insight-text">{aiAnalysis}</p>
           </div>
