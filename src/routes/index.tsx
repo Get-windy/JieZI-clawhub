@@ -141,7 +141,7 @@ function SkillsHome() {
             }}
             className="btn"
           >
-            See all non-suspicious skills
+            See all skills
           </Link>
         </div>
       </section>
