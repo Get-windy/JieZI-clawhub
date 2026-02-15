@@ -45,6 +45,7 @@ import type * as lib_githubAccount from "../lib/githubAccount.js";
 import type * as lib_githubBackup from "../lib/githubBackup.js";
 import type * as lib_githubIdentity from "../lib/githubIdentity.js";
 import type * as lib_githubImport from "../lib/githubImport.js";
+import type * as lib_githubProfileSync from "../lib/githubProfileSync.js";
 import type * as lib_githubRestoreHelpers from "../lib/githubRestoreHelpers.js";
 import type * as lib_githubSoulBackup from "../lib/githubSoulBackup.js";
 import type * as lib_httpHeaders from "../lib/httpHeaders.js";
@@ -133,6 +134,7 @@ declare const fullApi: ApiFromModules<{
   "lib/githubBackup": typeof lib_githubBackup;
   "lib/githubIdentity": typeof lib_githubIdentity;
   "lib/githubImport": typeof lib_githubImport;
+  "lib/githubProfileSync": typeof lib_githubProfileSync;
   "lib/githubRestoreHelpers": typeof lib_githubRestoreHelpers;
   "lib/githubSoulBackup": typeof lib_githubSoulBackup;
   "lib/httpHeaders": typeof lib_httpHeaders;

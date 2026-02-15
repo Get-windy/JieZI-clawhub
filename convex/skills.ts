@@ -166,12 +166,6 @@ function enforceNewSkillRateLimit(signals: OwnerTrustSignals) {
   }
 }
 
-async function resolveOwnerHandle(ctx: QueryCtx, ownerUserId: Id<'users'>) {
-  const owner = await ctx.db.get(ownerUserId)
-  if (!owner || owner.deletedAt || owner.deactivatedAt) return null
-  return owner?.handle ?? owner?._id ?? null
-}
-
 const HARD_DELETE_PHASES = [
   'versions',
   'fingerprints',
@@ -473,6 +467,7 @@ type PublicSkillEntry = {
   skill: NonNullable<ReturnType<typeof toPublicSkill>>
   latestVersion: PublicSkillListVersion | null
   ownerHandle: string | null
+  owner: ReturnType<typeof toPublicUser> | null
 }
 
 type PublicSkillListVersion = Pick<
@@ -497,7 +492,10 @@ type ManagementSkillEntry = {
 type BadgeKind = Doc<'skillBadges'>['kind']
 
 async function buildPublicSkillEntries(ctx: QueryCtx, skills: Doc<'skills'>[]) {
-  const ownerHandleCache = new Map<Id<'users'>, Promise<string | null>>()
+  const ownerInfoCache = new Map<
+    Id<'users'>,
+    Promise<{ ownerHandle: string | null; owner: ReturnType<typeof toPublicUser> | null }>
+  >()
   const badgeMapBySkillId: Map<Id<'skills'>, SkillBadgeMap> = skills.length <=
   MAX_BADGE_LOOKUP_SKILLS
     ? await getSkillBadgeMaps(
@@ -506,25 +504,38 @@ async function buildPublicSkillEntries(ctx: QueryCtx, skills: Doc<'skills'>[]) {
       )
     : new Map()
 
-  const getOwnerHandle = (ownerUserId: Id<'users'>) => {
-    const cached = ownerHandleCache.get(ownerUserId)
+  const getOwnerInfo = (ownerUserId: Id<'users'>) => {
+    const cached = ownerInfoCache.get(ownerUserId)
     if (cached) return cached
-    const handlePromise = resolveOwnerHandle(ctx, ownerUserId)
-    ownerHandleCache.set(ownerUserId, handlePromise)
-    return handlePromise
+    const ownerPromise = ctx.db.get(ownerUserId).then((ownerDoc) => {
+      if (!ownerDoc || ownerDoc.deletedAt || ownerDoc.deactivatedAt) {
+        return { ownerHandle: null, owner: null }
+      }
+      return {
+        ownerHandle: ownerDoc.handle ?? (ownerDoc._id ? String(ownerDoc._id) : null),
+        owner: toPublicUser(ownerDoc),
+      }
+    })
+    ownerInfoCache.set(ownerUserId, ownerPromise)
+    return ownerPromise
   }
 
   const entries = await Promise.all(
     skills.map(async (skill) => {
-      const [latestVersionDoc, ownerHandle] = await Promise.all([
+      const [latestVersionDoc, ownerInfo] = await Promise.all([
         skill.latestVersionId ? ctx.db.get(skill.latestVersionId) : null,
-        getOwnerHandle(skill.ownerUserId),
+        getOwnerInfo(skill.ownerUserId),
       ])
       const badges = badgeMapBySkillId.get(skill._id) ?? {}
       const publicSkill = toPublicSkill({ ...skill, badges })
       if (!publicSkill) return null
       const latestVersion = toPublicSkillListVersion(latestVersionDoc)
-      return { skill: publicSkill, latestVersion, ownerHandle }
+      return {
+        skill: publicSkill,
+        latestVersion,
+        ownerHandle: ownerInfo.ownerHandle,
+        owner: ownerInfo.owner,
+      }
     }),
   )
 
@@ -1209,6 +1220,15 @@ export const listWithLatest = query({
         latestVersion: Doc<'skillVersions'> | null
       } => Boolean(item.skill),
     )
+  },
+})
+
+export const listHighlightedPublic = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = clampInt(args.limit ?? 12, 1, MAX_PUBLIC_LIST_LIMIT)
+    const skills = await loadHighlightedSkills(ctx, limit)
+    return buildPublicSkillEntries(ctx, skills)
   },
 })
 
