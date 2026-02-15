@@ -3225,13 +3225,13 @@ html.theme-transition::view-transition-new(theme) {
 
 .btn-ghost {
   background: transparent;
-  border: 1px solid var(--card-border);
-  color: var(--color-text);
+  border-color: var(--border-ui);
+  color: var(--ink);
 }
 
 .btn-ghost:hover {
-  background: var(--card-bg);
-  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: var(--border-ui-hover);
 }
 
 @media (max-width: 640px) {
