@@ -14,7 +14,39 @@ export function SkillCommentsPanel({ skillId, isAuthenticated, me }: SkillCommen
   const addComment = useMutation(api.comments.add)
   const removeComment = useMutation(api.comments.remove)
   const [comment, setComment] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletingCommentId, setDeletingCommentId] = useState<Id<'comments'> | null>(null)
   const comments = useQuery(api.comments.listBySkill, { skillId, limit: 50 })
+
+  const submitComment = async () => {
+    const body = comment.trim()
+    if (!body || isSubmitting) return
+    setIsSubmitting(true)
+    setSubmitError(null)
+    try {
+      await addComment({ skillId, body })
+      setComment('')
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to post comment')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const deleteComment = async (commentId: Id<'comments'>) => {
+    if (deletingCommentId) return
+    setDeleteError(null)
+    setDeletingCommentId(commentId)
+    try {
+      await removeComment({ commentId })
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete comment')
+    } finally {
+      setDeletingCommentId(null)
+    }
+  }
 
   return (
     <div className="card">
@@ -25,8 +57,7 @@ export function SkillCommentsPanel({ skillId, isAuthenticated, me }: SkillCommen
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            if (!comment.trim()) return
-            void addComment({ skillId, body: comment.trim() }).then(() => setComment(''))
+            void submitComment()
           }}
           className="comment-form"
         >
@@ -36,14 +67,17 @@ export function SkillCommentsPanel({ skillId, isAuthenticated, me }: SkillCommen
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             placeholder="Leave a note…"
+            disabled={isSubmitting}
           />
-          <button className="btn comment-submit" type="submit">
-            Post comment
+          {submitError ? <div className="report-dialog-error">{submitError}</div> : null}
+          <button className="btn comment-submit" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Posting…' : 'Post comment'}
           </button>
         </form>
       ) : (
         <p className="section-subtitle">Sign in to comment.</p>
       )}
+      {deleteError ? <div className="report-dialog-error">{deleteError}</div> : null}
       <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>
         {(comments ?? []).length === 0 ? (
           <div className="stat">No comments yet.</div>
@@ -58,9 +92,10 @@ export function SkillCommentsPanel({ skillId, isAuthenticated, me }: SkillCommen
                 <button
                   className="btn comment-delete"
                   type="button"
-                  onClick={() => void removeComment({ commentId: entry.comment._id })}
+                  onClick={() => void deleteComment(entry.comment._id)}
+                  disabled={Boolean(deletingCommentId) || isSubmitting}
                 >
-                  Delete
+                  {deletingCommentId === entry.comment._id ? 'Deleting…' : 'Delete'}
                 </button>
               ) : null}
             </div>

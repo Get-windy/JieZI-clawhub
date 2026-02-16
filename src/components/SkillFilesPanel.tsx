@@ -29,6 +29,7 @@ export function SkillFilesPanel({
   const [isLoading, setIsLoading] = useState(false)
   const isMounted = useRef(true)
   const requestId = useRef(0)
+  const fileCache = useRef(new Map<string, { text: string; size: number; sha256: string }>())
 
   useEffect(() => {
     isMounted.current = true
@@ -53,17 +54,28 @@ export function SkillFilesPanel({
   const handleSelect = useCallback(
     (path: string) => {
       if (!versionId) return
+      const cacheKey = `${versionId}:${path}`
+      const cached = fileCache.current.get(cacheKey)
+
       requestId.current += 1
       const current = requestId.current
       setSelectedPath(path)
+      setFileError(null)
+      if (cached) {
+        setFileContent(cached.text)
+        setFileMeta({ size: cached.size, sha256: cached.sha256 })
+        setIsLoading(false)
+        return
+      }
+
       setFileContent(null)
       setFileMeta(null)
-      setFileError(null)
       setIsLoading(true)
       void getFileText({ versionId, path })
         .then((data) => {
           if (!isMounted.current) return
           if (requestId.current !== current) return
+          fileCache.current.set(cacheKey, data)
           setFileContent(data.text)
           setFileMeta({ size: data.size, sha256: data.sha256 })
           setIsLoading(false)

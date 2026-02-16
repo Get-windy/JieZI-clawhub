@@ -1,12 +1,21 @@
+import { lazy, Suspense } from 'react'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
-import { SkillDiffCard } from './SkillDiffCard'
-import { SkillFilesPanel } from './SkillFilesPanel'
+import { SkillVersionsPanel } from './SkillVersionsPanel'
+
+const SkillDiffCard = lazy(() =>
+  import('./SkillDiffCard').then((module) => ({ default: module.SkillDiffCard })),
+)
+
+const SkillFilesPanel = lazy(() =>
+  import('./SkillFilesPanel').then((module) => ({ default: module.SkillFilesPanel })),
+)
 
 type SkillFile = Doc<'skillVersions'>['files'][number]
 
 type SkillDetailTabsProps = {
   activeTab: 'files' | 'compare' | 'versions'
   setActiveTab: (tab: 'files' | 'compare' | 'versions') => void
+  onCompareIntent: () => void
   readmeContent: string | null
   readmeError: string | null
   latestFiles: SkillFile[]
@@ -20,6 +29,7 @@ type SkillDetailTabsProps = {
 export function SkillDetailTabs({
   activeTab,
   setActiveTab,
+  onCompareIntent,
   readmeContent,
   readmeError,
   latestFiles,
@@ -43,6 +53,14 @@ export function SkillDetailTabs({
           className={`tab-button${activeTab === 'compare' ? ' is-active' : ''}`}
           type="button"
           onClick={() => setActiveTab('compare')}
+          onMouseEnter={() => {
+            onCompareIntent()
+            void import('./SkillDiffCard')
+          }}
+          onFocus={() => {
+            onCompareIntent()
+            void import('./SkillDiffCard')
+          }}
         >
           Compare
         </button>
@@ -54,61 +72,28 @@ export function SkillDetailTabs({
           Versions
         </button>
       </div>
+
       {activeTab === 'files' ? (
-        <SkillFilesPanel
-          versionId={latestVersionId}
-          readmeContent={readmeContent}
-          readmeError={readmeError}
-          latestFiles={latestFiles}
-        />
+        <Suspense fallback={<div className="tab-body stat">Loading file viewer…</div>}>
+          <SkillFilesPanel
+            versionId={latestVersionId}
+            readmeContent={readmeContent}
+            readmeError={readmeError}
+            latestFiles={latestFiles}
+          />
+        </Suspense>
       ) : null}
+
       {activeTab === 'compare' ? (
         <div className="tab-body">
-          <SkillDiffCard skill={skill} versions={diffVersions ?? []} variant="embedded" />
+          <Suspense fallback={<div className="stat">Loading diff viewer…</div>}>
+            <SkillDiffCard skill={skill} versions={diffVersions ?? []} variant="embedded" />
+          </Suspense>
         </div>
       ) : null}
+
       {activeTab === 'versions' ? (
-        <div className="tab-body">
-          <div>
-            <h2 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
-              Versions
-            </h2>
-            <p className="section-subtitle" style={{ margin: 0 }}>
-              {nixPlugin
-                ? 'Review release history and changelog.'
-                : 'Download older releases or scan the changelog.'}
-            </p>
-          </div>
-          <div className="version-scroll">
-            <div className="version-list">
-              {(versions ?? []).map((version) => (
-                <div key={version._id} className="version-row">
-                  <div className="version-info">
-                    <div>
-                      v{version.version} · {new Date(version.createdAt).toLocaleDateString()}
-                      {version.changelogSource === 'auto' ? (
-                        <span style={{ color: 'var(--ink-soft)' }}> · auto</span>
-                      ) : null}
-                    </div>
-                    <div style={{ color: '#5c554e', whiteSpace: 'pre-wrap' }}>
-                      {version.changelog}
-                    </div>
-                  </div>
-                  {!nixPlugin ? (
-                    <div className="version-actions">
-                      <a
-                        className="btn version-zip"
-                        href={`${import.meta.env.VITE_CONVEX_SITE_URL}/api/v1/download?slug=${skill.slug}&version=${version.version}`}
-                      >
-                        Zip
-                      </a>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <SkillVersionsPanel versions={versions} nixPlugin={nixPlugin} skillSlug={skill.slug} />
       ) : null}
     </div>
   )

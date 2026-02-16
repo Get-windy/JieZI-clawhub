@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
-
 import { SkillDetailPage } from '../components/SkillDetailPage'
 
 const navigateMock = vi.fn()
@@ -129,5 +128,58 @@ describe('SkillDetailPage', () => {
 
     expect(await screen.findByRole('dialog')).toBeTruthy()
     expect(screen.getByText(/Report skill/i)).toBeTruthy()
+  })
+
+  it('defers compare version query until compare tab is requested', async () => {
+    useQueryMock.mockImplementation((_fn: unknown, args: unknown) => {
+      if (args === 'skip') return undefined
+      if (args && typeof args === 'object' && 'limit' in args) {
+        return []
+      }
+      if (args && typeof args === 'object' && 'skillId' in args) return []
+      if (args && typeof args === 'object' && 'slug' in args) {
+        return {
+          skill: {
+            _id: 'skills:1',
+            slug: 'weather',
+            displayName: 'Weather',
+            summary: 'Get current weather.',
+            ownerUserId: 'users:1',
+            tags: {},
+            stats: { stars: 0, downloads: 0 },
+          },
+          owner: { handle: 'steipete', name: 'Peter' },
+          latestVersion: { _id: 'skillVersions:1', version: '1.0.0', parsed: {}, files: [] },
+        }
+      }
+      return undefined
+    })
+
+    render(<SkillDetailPage slug="weather" />)
+    expect(await screen.findByText('Weather')).toBeTruthy()
+
+    expect(
+      useQueryMock.mock.calls.some(
+        ([, args]: [unknown, unknown]) =>
+          typeof args === 'object' &&
+          args !== null &&
+          'limit' in args &&
+          (args as { limit: number }).limit === 200,
+      ),
+    ).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: /compare/i }))
+
+    await waitFor(() => {
+      expect(
+        useQueryMock.mock.calls.some(
+          ([, args]: [unknown, unknown]) =>
+            typeof args === 'object' &&
+            args !== null &&
+            'limit' in args &&
+            (args as { limit: number }).limit === 200,
+        ),
+      ).toBe(true)
+    })
   })
 })
