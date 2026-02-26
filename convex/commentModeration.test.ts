@@ -1,5 +1,5 @@
 /* @vitest-environment node */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./_generated/api', () => ({
   internal: {
@@ -25,6 +25,20 @@ const {
   backfillCommentScamModerationInternalHandler,
 } = await import('./commentModeration')
 const { internal } = await import('./_generated/api')
+
+const previousOpenAiApiKey = process.env.OPENAI_API_KEY
+
+beforeEach(() => {
+  process.env.OPENAI_API_KEY = 'test-key'
+})
+
+afterEach(() => {
+  if (previousOpenAiApiKey === undefined) {
+    delete process.env.OPENAI_API_KEY
+    return
+  }
+  process.env.OPENAI_API_KEY = previousOpenAiApiKey
+})
 
 describe('commentModeration backfill', () => {
   it('evaluates comments and bans on certain/high scams', async () => {
