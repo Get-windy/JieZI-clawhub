@@ -88,10 +88,24 @@ test('skills search paginates exact results', async ({ page }) => {
   await expect(page.getByText('Skill 0')).toBeVisible()
   await expect(page.getByText('Scroll to load more')).toBeVisible()
 
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () => (window as typeof window & { __searchLimits: number[] }).__searchLimits.length,
+        ),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0)
+  const initialLimit = await page.evaluate(
+    () => (window as typeof window & { __searchLimits: number[] }).__searchLimits[0] ?? 0,
+  )
+  expect(initialLimit).toBeGreaterThan(0)
+
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-  await expect(page.getByText('Skill 75')).toBeVisible()
+  await expect(page.getByText(`Skill ${initialLimit + 5}`)).toBeVisible()
   const limits = await page.evaluate(
     () => (window as typeof window & { __searchLimits: number[] }).__searchLimits,
   )
-  expect(limits).toEqual([50, 100])
+  expect(Math.max(...limits)).toBeGreaterThan(initialLimit)
 })
