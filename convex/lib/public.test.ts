@@ -77,7 +77,7 @@ describe('public skill mapping', () => {
   })
 
   it('returns skill when moderationStatus is undefined (legacy)', () => {
-    const skill = makeSkill({ moderationStatus: undefined as unknown as string })
+    const skill = makeSkill({ moderationStatus: undefined })
     expect(toPublicSkill(skill)).not.toBeNull()
   })
 

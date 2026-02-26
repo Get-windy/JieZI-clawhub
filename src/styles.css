@@ -2432,6 +2432,29 @@ code {
   word-break: break-word;
 }
 
+.comment-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-self: end;
+}
+
+.comment-report-form {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.comment-report-input {
+  min-height: 96px;
+}
+
+.comment-report-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .comment-delete {
   justify-self: end;
   align-self: center;

@@ -216,7 +216,9 @@ describe('maintenance badge denormalization', () => {
       },
     } as never
 
-    const result = await (upsertSkillBadgeRecordInternal as { _handler: Function })._handler(ctx, {
+    const result = await (
+      upsertSkillBadgeRecordInternal as unknown as { _handler: Function }
+    )._handler(ctx, {
       skillId: 'skills:1',
       kind: 'highlighted',
       byUserId: 'users:1',
@@ -255,7 +257,9 @@ describe('maintenance badge denormalization', () => {
       },
     } as never
 
-    const result = await (upsertSkillBadgeRecordInternal as { _handler: Function })._handler(ctx, {
+    const result = await (
+      upsertSkillBadgeRecordInternal as unknown as { _handler: Function }
+    )._handler(ctx, {
       skillId: 'skills:1',
       kind: 'official',
       byUserId: 'users:2',

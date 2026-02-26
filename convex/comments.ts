@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
-import { addHandler, removeHandler } from './comments.handlers'
+import { addHandler, removeHandler, reportHandler } from './comments.handlers'
 import { type PublicUser, toPublicUser } from './lib/public'
 
 export const listBySkill = query({
@@ -34,4 +34,9 @@ export const add = mutation({
 export const remove = mutation({
   args: { commentId: v.id('comments') },
   handler: removeHandler,
+})
+
+export const report = mutation({
+  args: { commentId: v.id('comments'), reason: v.string() },
+  handler: reportHandler,
 })

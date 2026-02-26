@@ -10,23 +10,30 @@ read_when:
 
 ## Roles + permissions
 
-- user: upload skills/souls (subject to GitHub age gate), report skills.
+- user: upload skills/souls (subject to GitHub age gate), report skills/comments.
 - moderator: hide/restore skills, view hidden skills, unhide, soft-delete, ban users (except admins).
 - admin: all moderator actions + hard delete skills, change owners, change roles.
 
 ## Reporting + auto-hide
 
-- Reports are unique per user + skill.
+- Reports are unique per user + target (skill/comment).
 - Report reason required (trimmed, max 500 chars). Abuse of reporting may result in account bans.
 - Per-user cap: 20 **active** reports.
-  - Active = skill exists, not soft-deleted, not `moderationStatus = removed`,
+  - Active skill report = skill exists, not soft-deleted, not `moderationStatus = removed`,
     and the owner is not banned.
-- Auto-hide: when unique reports exceed 3 (4th report), the skill is:
-  - soft-deleted (`softDeletedAt`)
-  - `moderationStatus = hidden`
-  - `moderationReason = auto.reports`
-  - embeddings visibility set to `deleted`
-  - audit log entry: `skill.auto_hide`
+  - Active comment report = comment exists, not soft-deleted, parent skill still active,
+    and the comment author is not banned/deactivated.
+- Auto-hide: when unique reports exceed 3 (4th report):
+  - skill report flow:
+    - soft-delete skill (`softDeletedAt`)
+    - set `moderationStatus = hidden`
+    - set `moderationReason = auto.reports`
+    - set embeddings visibility `deleted`
+    - audit log entry: `skill.auto_hide`
+  - comment report flow:
+    - soft-delete comment (`softDeletedAt`)
+    - decrement comment stat via `uncomment` stat event
+    - audit log entry: `comment.auto_hide`
 - Public queries hide non-active moderation statuses; staff can still access via
   staff-only queries and unhide/restore/delete/ban.
 - Skills directory supports an optional "Hide suspicious" filter to exclude

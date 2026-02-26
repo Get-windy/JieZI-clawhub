@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Moderation: add comment reporting with per-user active report caps, unique reporter/target enforcement, and auto-hide on the 4th unique report.
 - Admin: add manual unban for banned users (clears `deletedAt` + `banReason`, audit log entry). Revoked API tokens stay revoked.
 - Admin: bulk restore skills from GitHub backup; reclaim squatted slugs via v1 endpoints + internal tooling (#298) (thanks @autogame-17).
 - Users: add `trustedPublisher` flag and admin mutations to bypass pending-scan auto-hide for trusted publishers (#298) (thanks @autogame-17).
@@ -12,6 +13,7 @@
 - CI/Security: add TruffleHog pull-request scanning for verified leaked credentials (#505) (thanks @akses0).
 
 ### Changed
+- Security/docs: document comment reporting/auto-hide behavior alongside existing skill reporting rules.
 - Quality gate: language-aware word counting (`Intl.Segmenter`) and new `cjkChars` signal to reduce false rejects for non-Latin docs.
 - Jobs: run skill stat event processing every 5 minutes (was 15).
 - API performance: batch resolve skill/soul tags in v1 list/get endpoints (fewer action->query round-trips) (#112) (thanks @mkrokosz).
@@ -22,6 +24,7 @@
 - Search/listing performance: cut embedding hydration and badge read bandwidth via `embeddingSkillMap` + denormalized skill badges; shift stat-doc sync to low-frequency cron (#441) (thanks @sethconvex).
 
 ### Fixed
+- Skills hard-delete: delete `commentReports` rows during moderation cleanup to avoid orphaned report records.
 - Admin API: `POST /api/v1/users/reclaim` now performs non-destructive root-slug owner transfer
   (preserves existing skill versions/stats/metadata) and clears active slug reservations.
 - Users: sync handle on ensure when GitHub login changes (#293) (thanks @christianhpoe).

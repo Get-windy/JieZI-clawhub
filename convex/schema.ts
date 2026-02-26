@@ -409,12 +409,27 @@ const comments = defineTable({
   skillId: v.id('skills'),
   userId: v.id('users'),
   body: v.string(),
+  reportCount: v.optional(v.number()),
+  lastReportedAt: v.optional(v.number()),
   createdAt: v.number(),
   softDeletedAt: v.optional(v.number()),
   deletedBy: v.optional(v.id('users')),
 })
   .index('by_skill', ['skillId'])
   .index('by_user', ['userId'])
+
+const commentReports = defineTable({
+  commentId: v.id('comments'),
+  skillId: v.id('skills'),
+  userId: v.id('users'),
+  reason: v.optional(v.string()),
+  createdAt: v.number(),
+})
+  .index('by_comment', ['commentId'])
+  .index('by_comment_createdAt', ['commentId', 'createdAt'])
+  .index('by_skill', ['skillId'])
+  .index('by_user', ['userId'])
+  .index('by_comment_user', ['commentId', 'userId'])
 
 const skillReports = defineTable({
   skillId: v.id('skills'),
@@ -593,6 +608,7 @@ export default defineSchema({
   skillStatEvents,
   skillStatUpdateCursors,
   comments,
+  commentReports,
   skillReports,
   soulComments,
   stars,

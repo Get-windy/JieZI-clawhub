@@ -32,6 +32,11 @@ import {
 import { buildTrendingLeaderboard } from './lib/leaderboards'
 import { deriveModerationFlags } from './lib/moderation'
 import { toPublicSkill, toPublicUser } from './lib/public'
+import {
+  AUTO_HIDE_REPORT_THRESHOLD,
+  MAX_ACTIVE_REPORTS_PER_USER,
+  MAX_REPORT_REASON_LENGTH,
+} from './lib/reporting'
 import { embeddingVisibilityFor } from './lib/embeddingVisibility'
 import { scheduleNextBatchIfNeeded } from './lib/batching'
 import {
@@ -64,8 +69,6 @@ const HARD_DELETE_BATCH_SIZE = 100
 const HARD_DELETE_VERSION_BATCH_SIZE = 10
 const HARD_DELETE_LEADERBOARD_BATCH_SIZE = 25
 const BAN_USER_SKILLS_BATCH_SIZE = 25
-const MAX_ACTIVE_REPORTS_PER_USER = 20
-const AUTO_HIDE_REPORT_THRESHOLD = 3
 const MAX_REPORT_REASON_SAMPLE = 5
 const RATE_LIMIT_HOUR_MS = 60 * 60 * 1000
 const RATE_LIMIT_DAY_MS = 24 * RATE_LIMIT_HOUR_MS
@@ -186,6 +189,7 @@ const HARD_DELETE_PHASES = [
   'fingerprints',
   'embeddings',
   'comments',
+  'commentReports',
   'reports',
   'stars',
   'badges',
@@ -295,6 +299,21 @@ async function hardDeleteSkillStep(
       }
       if (comments.length === HARD_DELETE_BATCH_SIZE) {
         await scheduleHardDelete(ctx, skill._id, actorUserId, 'comments')
+        return
+      }
+      await scheduleHardDelete(ctx, skill._id, actorUserId, 'commentReports')
+      return
+    }
+    case 'commentReports': {
+      const commentReports = await ctx.db
+        .query('commentReports')
+        .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+        .take(HARD_DELETE_BATCH_SIZE)
+      for (const report of commentReports) {
+        await ctx.db.delete(report._id)
+      }
+      if (commentReports.length === HARD_DELETE_BATCH_SIZE) {
+        await scheduleHardDelete(ctx, skill._id, actorUserId, 'commentReports')
         return
       }
       await scheduleHardDelete(ctx, skill._id, actorUserId, 'reports')
@@ -1472,7 +1491,7 @@ export const report = mutation({
     await ctx.db.insert('skillReports', {
       skillId: args.skillId,
       userId,
-      reason: reason.slice(0, 500),
+      reason: reason.slice(0, MAX_REPORT_REASON_LENGTH),
       createdAt: now,
     })
 
