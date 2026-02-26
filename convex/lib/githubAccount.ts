@@ -5,7 +5,9 @@ import type { ActionCtx } from '../_generated/server'
 import { GITHUB_PROFILE_SYNC_WINDOW_MS } from './githubProfileSync'
 
 const GITHUB_API = 'https://api.github.com'
-const MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60 * 1000
+const MIN_ACCOUNT_AGE_MS = 14 * 24 * 60 * 60 * 1000
+
+type GitHubAccountGateCtx = Pick<ActionCtx, 'runQuery' | 'runMutation'>
 
 type GitHubUser = {
   login?: string
@@ -29,7 +31,7 @@ function buildGitHubHeaders() {
   return headers
 }
 
-export async function requireGitHubAccountAge(ctx: ActionCtx, userId: Id<'users'>) {
+export async function requireGitHubAccountAge(ctx: GitHubAccountGateCtx, userId: Id<'users'>) {
   const user = await ctx.runQuery(internal.users.getByIdInternal, { userId })
   if (!user || user.deletedAt || user.deactivatedAt) throw new ConvexError('User not found')
 
@@ -76,7 +78,7 @@ export async function requireGitHubAccountAge(ctx: ActionCtx, userId: Id<'users'
     const remainingMs = MIN_ACCOUNT_AGE_MS - ageMs
     const remainingDays = Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
     throw new ConvexError(
-      `GitHub account must be at least 7 days old to upload skills. Try again in ${remainingDays} day${
+      `GitHub account must be at least 14 days old to publish skills or post comments. Try again in ${remainingDays} day${
         remainingDays === 1 ? '' : 's'
       }.`,
     )

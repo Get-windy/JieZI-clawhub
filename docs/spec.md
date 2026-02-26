@@ -126,6 +126,7 @@ From SKILL.md frontmatter + AgentSkills + Clawdis extensions:
 - Management console: moderators can hide/restore skills + mark duplicates + ban users; admins can change owners, approve badges, hard-delete skills, and ban users (deletes owned skills).
 - Role changes are admin-only and audited.
 - Reporting: any user can report skills/comments; per-user cap 20 active reports; targets auto-hide after >3 unique reports (mods can review/unhide/delete/ban).
+- Commenting (skills + souls) requires GitHub account age ≥ 14 days.
 
 ## Upload flow (50MB per version)
 1) Client requests upload session.
@@ -136,7 +137,7 @@ From SKILL.md frontmatter + AgentSkills + Clawdis extensions:
    - file extensions/text content
    - SKILL.md exists and frontmatter parseable
    - version uniqueness
-   - GitHub account age ≥ 7 days
+   - GitHub account age ≥ 14 days
 5) Server stores files + metadata, sets `latest` tag, updates stats.
 
 Soul upload flow: same as skills (including GitHub account age checks), but only `SOUL.md` is allowed.

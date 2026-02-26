@@ -10,8 +10,13 @@ vi.mock('./skillStatEvents', () => ({
   insertStatEvent: vi.fn(),
 }))
 
+vi.mock('./lib/githubAccount', () => ({
+  requireGitHubAccountAge: vi.fn(),
+}))
+
 const { requireUser, assertModerator } = await import('./lib/access')
 const { insertStatEvent } = await import('./skillStatEvents')
+const { requireGitHubAccountAge } = await import('./lib/githubAccount')
 const { addHandler, removeHandler, reportHandler } = await import('./comments.handlers')
 
 describe('comments mutations', () => {
@@ -19,6 +24,7 @@ describe('comments mutations', () => {
     vi.mocked(assertModerator).mockReset()
     vi.mocked(requireUser).mockReset()
     vi.mocked(insertStatEvent).mockReset()
+    vi.mocked(requireGitHubAccountAge).mockReset()
     vi.restoreAllMocks()
   })
 
@@ -27,6 +33,7 @@ describe('comments mutations', () => {
       userId: 'users:1',
       user: { _id: 'users:1', role: 'user' },
     } as never)
+    vi.mocked(requireGitHubAccountAge).mockResolvedValue(undefined as never)
 
     const get = vi.fn().mockResolvedValue({
       _id: 'skills:1',
@@ -37,11 +44,36 @@ describe('comments mutations', () => {
 
     await addHandler(ctx, { skillId: 'skills:1', body: ' hello ' } as never)
 
+    expect(requireGitHubAccountAge).toHaveBeenCalledWith(ctx, 'users:1')
     expect(patch).not.toHaveBeenCalled()
     expect(insertStatEvent).toHaveBeenCalledWith(ctx, {
       skillId: 'skills:1',
       kind: 'comment',
     })
+  })
+
+  it('add blocks new comments when github account age gate fails', async () => {
+    vi.mocked(requireUser).mockResolvedValue({
+      userId: 'users:new',
+      user: { _id: 'users:new', role: 'user' },
+    } as never)
+    vi.mocked(requireGitHubAccountAge).mockRejectedValue(
+      new Error('GitHub account must be at least 14 days old to upload skills. Try again in 3 days.'),
+    )
+
+    const get = vi.fn()
+    const insert = vi.fn()
+    const patch = vi.fn()
+    const ctx = { db: { get, insert, patch } } as never
+
+    await expect(addHandler(ctx, { skillId: 'skills:1', body: 'hello' } as never)).rejects.toThrow(
+      /at least 14 days old/i,
+    )
+
+    expect(get).not.toHaveBeenCalled()
+    expect(insert).not.toHaveBeenCalled()
+    expect(patch).not.toHaveBeenCalled()
+    expect(insertStatEvent).not.toHaveBeenCalled()
   })
 
   it('remove keeps comment soft-delete patch free of updatedAt', async () => {

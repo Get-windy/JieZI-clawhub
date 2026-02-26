@@ -1,6 +1,7 @@
 import type { Id } from './_generated/dataModel'
 import type { MutationCtx } from './_generated/server'
 import { assertModerator, requireUser } from './lib/access'
+import { requireGitHubAccountAge } from './lib/githubAccount'
 import {
   AUTO_HIDE_REPORT_THRESHOLD,
   MAX_ACTIVE_REPORTS_PER_USER,
@@ -10,6 +11,8 @@ import { insertStatEvent } from './skillStatEvents'
 
 export async function addHandler(ctx: MutationCtx, args: { skillId: Id<'skills'>; body: string }) {
   const { userId } = await requireUser(ctx)
+  await requireGitHubAccountAge(ctx, userId)
+
   const body = args.body.trim()
   if (!body) throw new Error('Comment body required')
 

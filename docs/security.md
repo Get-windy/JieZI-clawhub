@@ -80,11 +80,12 @@ read_when:
 
 ## Upload gate (GitHub account age)
 
-- Skill + soul publish actions require GitHub account age ≥ 7 days.
+- Skill + soul publish actions require GitHub account age ≥ 14 days.
+- Skill + soul comment creation also requires GitHub account age ≥ 14 days.
 - Lookup uses GitHub `created_at` fetched by the immutable GitHub numeric ID (`providerAccountId`)
   and caches on the user:
   - `githubCreatedAt` (source of truth)
-- Gate applies to web uploads, CLI publish, and GitHub import.
+- Gate applies to web uploads, CLI publish, GitHub import, and comments.
 - If GitHub responds `403` or `429`, publish fails with:
   - `GitHub API rate limit exceeded — please try again in a few minutes`
 - To reduce rate-limit failures, set `GITHUB_TOKEN` in Convex env for authenticated
