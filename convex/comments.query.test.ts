@@ -1,6 +1,6 @@
 /* @vitest-environment node */
 import { describe, expect, it } from 'vitest'
-import { listBySkill } from './comments'
+import { listBySkillHandler } from './comments'
 
 function makeCtx(args: {
   comments: Array<Record<string, unknown>>
@@ -45,7 +45,7 @@ describe('comments.listBySkill', () => {
       },
     })
 
-    const result = await listBySkill._handler(ctx, {
+    const result = await listBySkillHandler(ctx, {
       skillId: 'skills:1',
       limit: 50,
     } as never)
@@ -115,7 +115,7 @@ describe('comments.listBySkill', () => {
       },
     })
 
-    const result = await listBySkill._handler(ctx, {
+    const result = await listBySkillHandler(ctx, {
       skillId: 'skills:1',
       limit: 50,
     } as never)

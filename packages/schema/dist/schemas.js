@@ -110,6 +110,16 @@ export const ApiV1WhoamiResponseSchema = type({
         image: 'string|null?',
     },
 });
+export const ApiV1UserSearchResponseSchema = type({
+    items: type({
+        userId: 'string',
+        handle: 'string|null',
+        displayName: 'string|null?',
+        name: 'string|null?',
+        role: '"admin"|"moderator"|"user"|null?',
+    }).array(),
+    total: 'number',
+});
 export const ApiV1SearchResponseSchema = type({
     results: type({
         slug: 'string?',
@@ -167,6 +177,12 @@ export const ApiV1SkillVersionListResponseSchema = type({
     }).array(),
     nextCursor: 'string|null',
 });
+export const SecurityStatusSchema = type({
+    status: '"clean" | "suspicious" | "malicious" | "pending" | "error"',
+    hasWarnings: 'boolean',
+    checkedAt: 'number|null',
+    model: 'string|null',
+});
 export const ApiV1SkillVersionResponseSchema = type({
     version: type({
         version: 'string',
@@ -174,6 +190,7 @@ export const ApiV1SkillVersionResponseSchema = type({
         changelog: 'string',
         changelogSource: '"auto"|"user"|null?',
         files: 'unknown?',
+        security: SecurityStatusSchema.optional(),
     }).or('null'),
     skill: type({
         slug: 'string',
@@ -231,6 +248,24 @@ export const ClawdisRequiresSchema = type({
     env: 'string[]?',
     config: 'string[]?',
 });
+export const EnvVarDeclarationSchema = type({
+    name: 'string',
+    required: 'boolean?',
+    description: 'string?',
+});
+export const DependencyDeclarationSchema = type({
+    name: 'string',
+    type: '"pip"|"npm"|"brew"|"go"|"cargo"|"apt"|"other"',
+    version: 'string?',
+    url: 'string?',
+    repository: 'string?',
+});
+export const SkillLinksSchema = type({
+    homepage: 'string?',
+    repository: 'string?',
+    documentation: 'string?',
+    changelog: 'string?',
+});
 export const ClawdisSkillMetadataSchema = type({
     always: 'boolean?',
     skillKey: 'string?',
@@ -243,5 +278,9 @@ export const ClawdisSkillMetadataSchema = type({
     install: SkillInstallSpecSchema.array().optional(),
     nix: NixPluginSpecSchema.optional(),
     config: ClawdbotConfigSpecSchema.optional(),
+    envVars: EnvVarDeclarationSchema.array().optional(),
+    dependencies: DependencyDeclarationSchema.array().optional(),
+    author: 'string?',
+    links: SkillLinksSchema.optional(),
 });
 //# sourceMappingURL=schemas.js.map

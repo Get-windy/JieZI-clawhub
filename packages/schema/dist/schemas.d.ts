@@ -135,6 +135,16 @@ export declare const ApiV1WhoamiResponseSchema: import("arktype/internal/variant
         image?: string | null | undefined;
     };
 }, {}>;
+export declare const ApiV1UserSearchResponseSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+    items: {
+        userId: string;
+        handle: string | null;
+        displayName?: string | null | undefined;
+        name?: string | null | undefined;
+        role?: "user" | "admin" | "moderator" | null | undefined;
+    }[];
+    total: number;
+}, {}>;
 export declare const ApiV1SearchResponseSchema: import("arktype/internal/variants/object.ts").ObjectType<{
     results: {
         score: number;
@@ -192,6 +202,12 @@ export declare const ApiV1SkillVersionListResponseSchema: import("arktype/intern
     }[];
     nextCursor: string | null;
 }, {}>;
+export declare const SecurityStatusSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+    status: "clean" | "suspicious" | "malicious" | "pending" | "error";
+    hasWarnings: boolean;
+    checkedAt: number | null;
+    model: string | null;
+}, {}>;
 export declare const ApiV1SkillVersionResponseSchema: import("arktype/internal/variants/object.ts").ObjectType<{
     version: {
         version: string;
@@ -199,6 +215,12 @@ export declare const ApiV1SkillVersionResponseSchema: import("arktype/internal/v
         changelog: string;
         changelogSource?: "user" | "auto" | null | undefined;
         files?: unknown;
+        security?: {
+            status: "clean" | "suspicious" | "malicious" | "pending" | "error";
+            hasWarnings: boolean;
+            checkedAt: number | null;
+            model: string | null;
+        } | undefined;
     } | null;
     skill: {
         slug: string;
@@ -264,6 +286,27 @@ export declare const ClawdisRequiresSchema: import("arktype/internal/variants/ob
     config?: string[] | undefined;
 }, {}>;
 export type ClawdisRequires = (typeof ClawdisRequiresSchema)[inferred];
+export declare const EnvVarDeclarationSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+    name: string;
+    required?: boolean | undefined;
+    description?: string | undefined;
+}, {}>;
+export type EnvVarDeclaration = (typeof EnvVarDeclarationSchema)[inferred];
+export declare const DependencyDeclarationSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+    name: string;
+    type: "brew" | "go" | "pip" | "npm" | "cargo" | "apt" | "other";
+    version?: string | undefined;
+    url?: string | undefined;
+    repository?: string | undefined;
+}, {}>;
+export type DependencyDeclaration = (typeof DependencyDeclarationSchema)[inferred];
+export declare const SkillLinksSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+    homepage?: string | undefined;
+    repository?: string | undefined;
+    documentation?: string | undefined;
+    changelog?: string | undefined;
+}, {}>;
+export type SkillLinks = (typeof SkillLinksSchema)[inferred];
 export declare const ClawdisSkillMetadataSchema: import("arktype/internal/variants/object.ts").ObjectType<{
     always?: boolean | undefined;
     skillKey?: string | undefined;
@@ -297,5 +340,40 @@ export declare const ClawdisSkillMetadataSchema: import("arktype/internal/varian
         stateDirs?: string[] | undefined;
         example?: string | undefined;
     } | undefined;
+    envVars?: {
+        name: string;
+        required?: boolean | undefined;
+        description?: string | undefined;
+    }[] | undefined;
+    dependencies?: {
+        name: string;
+        type: "brew" | "go" | "pip" | "npm" | "cargo" | "apt" | "other";
+        version?: string | undefined;
+        url?: string | undefined;
+        repository?: string | undefined;
+    }[] | undefined;
+    author?: string | undefined;
+    links?: {
+        homepage?: string | undefined;
+        repository?: string | undefined;
+        documentation?: string | undefined;
+        changelog?: string | undefined;
+    } | undefined;
 }, {}>;
-export type ClawdisSkillMetadata = (typeof ClawdisSkillMetadataSchema)[inferred];
+export type ClawdisSkillMetadata = {
+    always?: boolean;
+    skillKey?: string;
+    primaryEnv?: string;
+    emoji?: string;
+    homepage?: string;
+    os?: string[];
+    cliHelp?: string;
+    requires?: ClawdisRequires;
+    install?: SkillInstallSpec[];
+    nix?: NixPluginSpec;
+    config?: ClawdbotConfigSpec;
+    envVars?: EnvVarDeclaration[];
+    dependencies?: DependencyDeclaration[];
+    author?: string;
+    links?: SkillLinks;
+};

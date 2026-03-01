@@ -336,4 +336,20 @@ export const ClawdisSkillMetadataSchema = type({
   author: 'string?',
   links: SkillLinksSchema.optional(),
 })
-export type ClawdisSkillMetadata = (typeof ClawdisSkillMetadataSchema)[inferred]
+export type ClawdisSkillMetadata = {
+  always?: boolean
+  skillKey?: string
+  primaryEnv?: string
+  emoji?: string
+  homepage?: string
+  os?: string[]
+  cliHelp?: string
+  requires?: ClawdisRequires
+  install?: SkillInstallSpec[]
+  nix?: NixPluginSpec
+  config?: ClawdbotConfigSpec
+  envVars?: EnvVarDeclaration[]
+  dependencies?: DependencyDeclaration[]
+  author?: string
+  links?: SkillLinks
+}
