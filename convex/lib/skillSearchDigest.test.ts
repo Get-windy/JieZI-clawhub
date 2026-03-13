@@ -167,4 +167,18 @@ describe('digestToOwnerInfo', () => {
     }
     expect(digestToOwnerInfo(digest)).toBeNull()
   })
+
+  it('uses userId as fallback handle when ownerHandle is empty string', () => {
+    const digest = {
+      ownerUserId: 'users:owner' as never,
+      ownerHandle: '',
+      ownerName: undefined,
+      ownerDisplayName: undefined,
+      ownerImage: undefined,
+    }
+    const result = digestToOwnerInfo(digest)
+    expect(result).not.toBeNull()
+    expect(result!.ownerHandle).toBe('users:owner')
+    expect(result!.owner).toBeNull()
+  })
 })

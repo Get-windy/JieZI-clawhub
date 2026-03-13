@@ -27,7 +27,11 @@ triggers.register('skills', async (ctx, change) => {
     const isOwnerVisible = owner && !owner.deletedAt && !owner.deactivatedAt
     await upsertSkillSearchDigest(ctx, {
       ...fields,
-      ownerHandle: isOwnerVisible ? owner.handle : undefined,
+      // Use '' as sentinel for "visible user without a handle" so
+      // digestToOwnerInfo can distinguish from undefined (not backfilled).
+      // Deactivated/deleted owners also get '' → digestToOwnerInfo returns
+      // null owner, matching the live path.
+      ownerHandle: isOwnerVisible ? (owner.handle ?? '') : '',
       ownerName: isOwnerVisible ? owner.name : undefined,
       ownerDisplayName: isOwnerVisible ? owner.displayName : undefined,
       ownerImage: isOwnerVisible ? owner.image : undefined,
