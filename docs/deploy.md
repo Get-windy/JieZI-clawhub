@@ -34,6 +34,9 @@ GitHub Actions secrets required for `deploy.yml`:
 - `VERCEL_TOKEN`
 - Optional: `PLAYWRIGHT_AUTH_STORAGE_STATE_JSON` for authenticated smoke coverage
 
+`deploy.yml` now fails in preflight if either required secret is missing. It no
+longer reports a successful workflow while skipping the actual deploy jobs.
+
 Ensure Convex env is set (auth + embeddings):
 
 - `AUTH_GITHUB_ID`
